@@ -196,3 +196,7 @@ if __name__ == '__main__':
                                    ]))
     num = 100
     d = mnist_noniid(dataset_train, num)
+
+
+def ignore_this():
+    result_vec = np.random.dirichlet((0.5,0.5,0.5))
