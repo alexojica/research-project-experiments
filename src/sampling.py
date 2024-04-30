@@ -22,6 +22,48 @@ def mnist_iid(dataset, num_users):
         all_idxs = list(set(all_idxs) - dict_users[i])
     return dict_users
 
+def split_dirichlet(dataset, num_users, beta):
+    """
+    Sample non-I.I.D client data from an arbitary dataset.
+    Samples it based on this paper: 10.48550/ARXIV.1905.12022
+    :param dataset: The dataset
+    :param num_users: The number of clients
+    :return: dict mapping client id to idxs for training
+    """
+    idxs = np.arange(len(dataset))
+    uniq_labels = np.unique(dataset.train_labels.numpy())
+    dict_users = {i: np.array([]) for i in range(num_users)}
+    idxs_labels = np.vstack((idxs, dataset.train_labels.numpy()))
+    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+    idxs_labels = idxs_labels.transpose()
+
+    assert len(idxs_labels[1]) == 2 # sanity check
+
+    for label in uniq_labels:
+        relevant_idxs = idxs_labels[(idxs_labels[:, 1] == label)][:,0].T
+        proportions = np.random.dirichlet(np.full(num_users, beta))
+        splits = split_by_ratio(relevant_idxs, proportions)
+        for idx, split in enumerate(splits):
+            dict_users[idx] = np.concatenate([dict_users[idx], split])
+
+    return dict_users
+
+def split_by_ratio(arr, ratios):
+    """
+    Splits an np array according to some proportions, must sum to 1
+    """
+    arr = np.random.permutation(arr)
+    ind = np.add.accumulate(np.array(ratios) * len(arr)).astype(int)
+    return [x.tolist() for x in np.split(arr, ind)][:len(ratios)]
+
+
+
+
+
+
+
+
+
 
 def mnist_noniid(dataset, num_users):
     """
@@ -197,6 +239,8 @@ if __name__ == '__main__':
     num = 100
     d = mnist_noniid(dataset_train, num)
 
+    test_dict = split_dirichlet(dataset_train, 10, 0.5)
 
-def ignore_this():
-    result_vec = np.random.dirichlet((0.5,0.5,0.5))
+
+
+
