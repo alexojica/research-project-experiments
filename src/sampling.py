@@ -22,18 +22,21 @@ def mnist_iid(dataset, num_users):
         all_idxs = list(set(all_idxs) - dict_users[i])
     return dict_users
 
-def split_dirichlet(dataset, num_users, beta):
+def split_dirichlet(dataset, num_users, is_cfar, beta=0.5):
     """
     Sample non-I.I.D client data from an arbitary dataset.
     Samples it based on this paper: 10.48550/ARXIV.1905.12022
     :param dataset: The dataset
     :param num_users: The number of clients
+    :param is_cfar: Whether the dataset is cfar (bool). This is a stupid solution but is necessary since for some reason,
+    their parameter name is different.
     :return: dict mapping client id to idxs for training
     """
     idxs = np.arange(len(dataset))
-    uniq_labels = np.unique(dataset.train_labels.numpy())
+    labels = np.array(dataset.targets) if is_cfar else dataset.train_labels.numpy()
+    uniq_labels = np.unique(labels)
     dict_users = {i: np.array([]) for i in range(num_users)}
-    idxs_labels = np.vstack((idxs, dataset.train_labels.numpy()))
+    idxs_labels = np.vstack((idxs, labels))
     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
     idxs_labels = idxs_labels.transpose()
 
@@ -211,8 +214,7 @@ def cifar_noniid(dataset, num_users):
     idx_shard = [i for i in range(num_shards)]
     dict_users = {i: np.array([]) for i in range(num_users)}
     idxs = np.arange(num_shards*num_imgs)
-    # labels = dataset.train_labels.numpy()
-    labels = np.array(dataset.train_labels)
+    labels = np.array(dataset.targets)
 
     # sort labels
     idxs_labels = np.vstack((idxs, labels))
@@ -238,8 +240,6 @@ if __name__ == '__main__':
                                    ]))
     num = 100
     d = mnist_noniid(dataset_train, num)
-
-    test_dict = split_dirichlet(dataset_train, 10, 0.5)
 
 
 

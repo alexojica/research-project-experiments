@@ -56,7 +56,7 @@ The default values for various paramters parsed to the experiment are given in `
 * ```--seed:```     Random Seed. Default set to 1.
 
 #### Federated Parameters
-* ```--iid:```      Distribution of data amongst users. Default set to IID. Set to 0 for non-IID.
+* ```--iid:```      Distribution of data amongst users. Default set to IID (1). Set to 0 for non-IID. Set to 2 for Dirichlet with beta=0.5.
 * ```--num_users:```Number of users. Default is 100.
 * ```--frac:```     Fraction of users to be used for federated updates. Default is 0.1.
 * ```--local_ep:``` Number of local training epochs in each user. Default is 10.
