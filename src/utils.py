@@ -4,9 +4,11 @@
 
 import copy
 import torch
+from torch import Tensor
 from torchvision import datasets, transforms
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
 from sampling import cifar_iid, cifar_noniid
+from torch import nn
 
 
 def get_dataset(args):
@@ -100,3 +102,57 @@ def exp_details(args):
     print(f'    Local Batch size   : {args.local_bs}')
     print(f'    Local Epochs       : {args.local_ep}\n')
     return
+
+
+# TODO: get this verified
+def get_properties(encodings: Tensor, dim_encoding: int) -> tuple[Tensor, Tensor]:
+    """
+    Extracts the mean (mu) and standard deviation (sd) of the encodings
+    """
+    mu = encodings[:, :dim_encoding]
+    sigma = torch.exp(encodings[:, dim_encoding:])
+    return mu, sigma
+
+
+# TODO: get this verified
+def sample(encodings: Tensor, dim_encoding: int) -> Tensor:
+    """
+    Given encodings and its dimensionality, generates samples its distribution.
+
+    For example: if given 6 data points with 2-dimensional encoding:
+    - encodings: torch.Size([6, 2])
+    - returns: torch.Size([6, 2])
+    """
+    mu, sigma = get_properties(encodings, dim_encoding)
+    s = torch.rand(mu.shape, device=encodings.device)
+    return mu + s * torch.sqrt(sigma)
+
+
+def vae_classifier_loss_fn(
+        input,
+        output,
+        model_encodings,
+        labels,
+        alpha=1.0
+) -> float:
+    """
+    Loss function for the VAE with classification in output. It considers three terms:
+    - reconstruction loss by comparing image quality between input and output
+    - difference between the current and desired latent probability distribution, computed with
+    Kullback-Leibler divergence (KL)
+    - Cross-entropy loss to minimize error between the actual and predicted outcomes
+    """
+
+    # regular loss function
+    mse = nn.MSELoss(reduction='sum')
+    reg_loss = mse(input, output)
+
+    # KL loss function
+    mu, sigma = get_properties(model_encodings)
+    kl_loss = 0.5 * torch.sum(sigma ** 2 + mu ** 2 - 1 - 2 * torch.log(sigma))
+
+    # cross-entropy loss function
+    cl = nn.CrossEntropyLoss()
+    cl_loss = alpha * cl(output[1], labels)
+
+    return reg_loss + kl_loss + cl_loss
