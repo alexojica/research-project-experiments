@@ -51,8 +51,8 @@ def split_dirichlet(dataset, num_users: int, is_cfar: bool, beta: float = 0.5) -
         for idx, split in enumerate(splits):
             dict_users[idx] = np.concatenate([dict_users[idx], split])
 
-    for _ , idxs in dict_users.items():
-        if len(idxs) < 40:
+    for _ , dict_val in dict_users.items():
+        if len(dict_val) < 40:
             # We just restart a split if a user isn't assigned enough samples.
             return split_dirichlet(dataset, num_users, is_cfar, beta)
 
