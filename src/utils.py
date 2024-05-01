@@ -31,7 +31,7 @@ def get_dataset(args):
             # Sample IID user data from Mnist
             user_groups = cifar_iid(train_dataset, args.num_users)
         elif args.iid == 2:
-            user_groups = split_dirichlet(train_dataset, args.num_users, is_cfar=True)
+            user_groups = split_dirichlet(train_dataset, args.num_users, is_cfar=True, beta=args.dirichlet)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:
@@ -62,7 +62,7 @@ def get_dataset(args):
             # Sample IID user data from Mnist
             user_groups = mnist_iid(train_dataset, args.num_users)
         elif args.iid == 2:
-            user_groups = split_dirichlet(train_dataset, args.num_users, is_cfar=False)
+            user_groups = split_dirichlet(train_dataset, args.num_users, is_cfar=False, beta=args.dirichlet)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:

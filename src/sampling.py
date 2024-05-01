@@ -22,7 +22,8 @@ def mnist_iid(dataset, num_users):
         all_idxs = list(set(all_idxs) - dict_users[i])
     return dict_users
 
-def split_dirichlet(dataset, num_users, is_cfar, beta=0.5):
+
+def split_dirichlet(dataset, num_users: int, is_cfar: bool, beta: float = 0.5) -> dict[int, [int]]:
     """
     Sample non-I.I.D client data from an arbitary dataset.
     Samples it based on this paper: 10.48550/ARXIV.1905.12022
@@ -30,6 +31,7 @@ def split_dirichlet(dataset, num_users, is_cfar, beta=0.5):
     :param num_users: The number of clients
     :param is_cfar: Whether the dataset is cfar (bool). This is a stupid solution but is necessary since for some reason,
     their parameter name is different.
+    :param beta: The beta parameter used to control the distribution spread.
     :return: dict mapping client id to idxs for training
     """
     idxs = np.arange(len(dataset))
@@ -38,9 +40,9 @@ def split_dirichlet(dataset, num_users, is_cfar, beta=0.5):
     dict_users = {i: np.array([]) for i in range(num_users)}
     idxs_labels = np.vstack((idxs, labels))
     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-    idxs_labels = idxs_labels.transpose()
+    idxs_labels = idxs_labels.T
 
-    assert len(idxs_labels[1]) == 2 # sanity check
+    assert np.shape(idxs_labels) == (len(dataset), 2)
 
     for label in uniq_labels:
         relevant_idxs = idxs_labels[(idxs_labels[:, 1] == label)][:,0].T
