@@ -132,11 +132,10 @@ class VaeAutoencoder(nn.Module):
         Returns a tensor of a random MNIST image.
         """
         encodings = self.encoder(x)
+        self.encodings = encodings
 
         # maps the encodings to a distribution and generate samples from it
         sampled = sample(encodings)
-
-        # self.encoded = encoded
         return self.decoder(sampled)
 
 
@@ -156,12 +155,11 @@ class VaeAutoencoderClassifier(nn.Module):
         """
         # Tensor of 2-dimension encodings in the latent space
         # e.g. if given 6 data points, encoded is torch.Size([6, 2])
-        encoded = self.encoder(x)
+        encodings = self.encoder(x)
+
+        self.encodings = encodings
 
         # maps the encoded vector to a distribution and generate samples from it
-        sampled = sample(encoded)
-
-        # self.encoded = encoded
-
+        sampled = sample(encodings)
         decoded = self.decoder(sampled)
         return decoded[:, :MNIST_INPUT_SIZE].reshape(-1, 1, 28, 28), decoded[:, MNIST_INPUT_SIZE:]
