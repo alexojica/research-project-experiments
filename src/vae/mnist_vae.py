@@ -2,7 +2,6 @@ import os
 import sys
 
 module_to_import = os.path.dirname(sys.path[0])
-print(module_to_import)
 sys.path.append(module_to_import)
 
 from utils import sample
@@ -135,7 +134,7 @@ class VaeAutoencoder(nn.Module):
         self.encodings = encodings
 
         # maps the encodings to a distribution and generate samples from it
-        sampled = sample(encodings)
+        sampled = sample(encodings, self.dim_encoding)
         return self.decoder(sampled)
 
 
@@ -160,6 +159,6 @@ class VaeAutoencoderClassifier(nn.Module):
         self.encodings = encodings
 
         # maps the encoded vector to a distribution and generate samples from it
-        sampled = sample(encodings)
+        sampled = sample(encodings, self.dim_encoding)
         decoded = self.decoder(sampled)
         return decoded[:, :MNIST_INPUT_SIZE].reshape(-1, 1, 28, 28), decoded[:, MNIST_INPUT_SIZE:]
