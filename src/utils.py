@@ -134,6 +134,7 @@ def reg_loss_fn():
     return lambda input, output: mse(input, output)
 
 
+# TODO: get this verified
 def kl_loss(model_encodings, dim_encoding):
     mu, sigma = get_properties(model_encodings, dim_encoding)
     return 0.5 * torch.sum(sigma**2 + mu**2 - 1 - 2*torch.log(sigma))
@@ -146,7 +147,7 @@ def vae_loss_fn():
         kl_loss(model_encodings, dim_encoding)
 
 
-def vae_classifier_loss_fn(alpha=1.0):
+def vae_classifier_loss_fn(alpha):
     """
     Loss function for the VAE with classification to use for backpropagation. It considers three terms:
     - reconstruction loss by comparing image quality between input and output
@@ -165,9 +166,10 @@ def vae_classifier_loss_fn(alpha=1.0):
 def train_vae_classifier(
         vae_classifier_model: nn.Module,
         training_data,
+        alpha=1.0,
         epochs=5
-) -> tuple[nn.Module, list]:
-    complete_loss_fn = vae_classifier_loss_fn()
+) -> tuple[nn.Module, list, list, list, list]:
+    complete_loss_fn = vae_classifier_loss_fn(alpha)
     cl_fn = nn.CrossEntropyLoss()
     vl_fn = vae_loss_fn()
 
@@ -176,8 +178,8 @@ def train_vae_classifier(
 
     training_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
 
-    losses = []
-
+    # TODO: add part for kl loss as well
+    total_losses = []
     classifier_accuracy_li = []
     classifier_loss_li = []
     vae_loss_li = []
@@ -204,7 +206,7 @@ def train_vae_classifier(
             optimizer.step()
             i += 1
             if i % 100 == 0:
-                losses.append(loss.item())
+                total_losses.append(loss.item())
 
                 # calculate accuracy
                 matches_labels = (torch.argmax(output[1], 1) == labels)
@@ -220,7 +222,12 @@ def train_vae_classifier(
                 vae_loss_li.append(
                     vl_fn(input, output[0], vae_classifier_model.encodings, vae_classifier_model.dim_encoding)
                 )
-                print(epoch, i, loss.item(), end='; ')
+                print(epoch, loss.item(), end='; ')
 
-    return vae_classifier_model.to('cpu').eval(), losses
-
+    return (
+        vae_classifier_model.to('cpu').eval(),
+        total_losses,
+        classifier_accuracy_li,
+        classifier_loss_li,
+        vae_loss_li
+    )
