@@ -1,17 +1,8 @@
-import sys
-import os
-
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import SGD
-
-module_to_import = os.path.join(os.path.dirname(sys.path[0]), 'dataset')
-print(module_to_import)
-sys.path.append(module_to_import)
-
-from mnist import prepare_mnist_dataset
 
 
 def neural_network(num_classes, num_pixels) -> tf.keras.Sequential:
@@ -44,7 +35,6 @@ def train_model(
     # Optimizer: SGD (Stochastic Gradient Descent)
     opt = SGD(learning_rate=learning_rate)
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
-
     model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1)
 
 
@@ -55,9 +45,3 @@ def test_model(
 ):
     scores = model.evaluate(x_test, y_test, verbose=1)
     print("Error: ", (100 - scores[1] * 100), "%")
-
-
-x_train, x_test, y_train, y_test = prepare_mnist_dataset()
-nn_model = neural_network(10, 784)
-train_model(nn_model, x_train, y_train)
-test_model(nn_model, x_test, y_test)
