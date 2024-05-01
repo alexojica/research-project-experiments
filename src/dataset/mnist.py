@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import load_img, img_to_array, to_categorical
 
 
-def prepare_mnist_dataset(train_ratio=0.8):
+def prepare_mnist_dataset(train_ratio=0.8) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     (default_x_train, default_y_train), (default_x_test, default_y_test) = tf.keras.datasets.mnist.load_data()
 
     # Concatenate the training and testing sets
@@ -40,5 +40,4 @@ def prepare_mnist_dataset(train_ratio=0.8):
     y_test = to_categorical(y_test)
 
     print('Output shape', y_train.shape)
-
     return x_train, x_test, y_train, y_test
