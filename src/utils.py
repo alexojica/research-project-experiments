@@ -165,9 +165,9 @@ def vae_classifier_loss_fn(alpha=1.0):
 def train_vae_classifier(
         vae_classifier_model: nn.Module,
         training_data,
-        vae_classifier_loss_fn,
         epochs=5
 ) -> tuple[nn.Module, list]:
+    complete_loss_fn = vae_classifier_loss_fn()
     cl_fn = nn.CrossEntropyLoss()
     vl_fn = vae_loss_fn()
 
@@ -190,7 +190,13 @@ def train_vae_classifier(
             output = vae_classifier_model(input)
 
             # loss function to back-propagate on
-            loss = vae_classifier_loss_fn(input, output, vae_classifier_model.encodings, labels)
+            loss = complete_loss_fn(
+                input,
+                output,
+                vae_classifier_model.encodings,
+                vae_classifier_model.dim_encoding,
+                labels
+            )
 
             # back propagation
             optimizer.zero_grad()
@@ -217,3 +223,4 @@ def train_vae_classifier(
                 print(epoch, i, loss.item(), end='; ')
 
     return vae_classifier_model.to('cpu').eval(), losses
+
