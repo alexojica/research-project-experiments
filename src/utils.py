@@ -9,6 +9,7 @@ from torchvision import datasets, transforms
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
 from sampling import cifar_iid, cifar_noniid
 from torch import nn
+from torch.utils.data import DataLoader
 
 
 def get_dataset(args):
@@ -128,31 +129,91 @@ def sample(encodings: Tensor, dim_encoding: int) -> Tensor:
     return mu + s * torch.sqrt(sigma)
 
 
-def vae_classifier_loss_fn(
-        input,
-        output,
-        model_encodings,
-        labels,
-        alpha=1.0
-) -> float:
+def reg_loss_fn():
+    mse = nn.MSELoss(reduction='sum')
+    return lambda input, output: mse(input, output)
+
+
+def kl_loss(model_encodings, dim_encoding):
+    mu, sigma = get_properties(model_encodings, dim_encoding)
+    return 0.5 * torch.sum(sigma**2 + mu**2 - 1 - 2*torch.log(sigma))
+
+
+def vae_loss_fn():
+    reg = reg_loss_fn()
+    return lambda input, output, model_encodings, dim_encoding:\
+        reg(input, output) +\
+        kl_loss(model_encodings, dim_encoding)
+
+
+def vae_classifier_loss_fn(alpha=1.0):
     """
-    Loss function for the VAE with classification in output. It considers three terms:
+    Loss function for the VAE with classification to use for backpropagation. It considers three terms:
     - reconstruction loss by comparing image quality between input and output
     - difference between the current and desired latent probability distribution, computed with
     Kullback-Leibler divergence (KL)
     - Cross-entropy loss to minimize error between the actual and predicted outcomes
     """
+    vl_fn = vae_loss_fn()
+    cl_fn = nn.CrossEntropyLoss()
 
-    # regular loss function
-    mse = nn.MSELoss(reduction='sum')
-    reg_loss = mse(input, output)
+    return lambda input, output, model_encodings, dim_encoding, labels: \
+        vl_fn(input, output[0], model_encodings, dim_encoding) + \
+        alpha * cl_fn(output[1], labels)
 
-    # KL loss function
-    mu, sigma = get_properties(model_encodings)
-    kl_loss = 0.5 * torch.sum(sigma ** 2 + mu ** 2 - 1 - 2 * torch.log(sigma))
 
-    # cross-entropy loss function
-    cl = nn.CrossEntropyLoss()
-    cl_loss = alpha * cl(output[1], labels)
+def train_vae_classifier(
+        vae_classifier_model: nn.Module,
+        training_data,
+        vae_classifier_loss_fn,
+        epochs=5
+) -> tuple[nn.Module, list]:
+    cl_fn = nn.CrossEntropyLoss()
+    vl_fn = vae_loss_fn()
 
-    return reg_loss + kl_loss + cl_loss
+    vae_classifier_model = vae_classifier_model.to('cuda')
+    optimizer = torch.optim.Adam(params=vae_classifier_model.parameters())
+
+    training_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+
+    losses = []
+
+    classifier_accuracy_li = []
+    classifier_loss_li = []
+    vae_loss_li = []
+
+    for epoch in range(epochs):
+        i = 0
+        for input, labels in training_dataloader:
+            input = input.to('cuda')
+            labels = labels.to('cuda')
+            output = vae_classifier_model(input)
+
+            # loss function to back-propagate on
+            loss = vae_classifier_loss_fn(input, output, vae_classifier_model.encodings, labels)
+
+            # back propagation
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            i += 1
+            if i % 100 == 0:
+                losses.append(loss.item())
+
+                # calculate accuracy
+                matches_labels = (torch.argmax(output[1], 1) == labels)
+                accuracy = torch.mean(matches_labels.float())
+                classifier_accuracy_li.append(accuracy)
+
+                # calculate cross entropy loss
+                classifier_loss_li.append(
+                    cl_fn(output[1], labels)
+                )
+
+                # calculate VAE loss
+                vae_loss_li.append(
+                    vl_fn(input, output[0], vae_classifier_model.encodings, vae_classifier_model.dim_encoding)
+                )
+                print(epoch, i, loss.item(), end='; ')
+
+    return vae_classifier_model.to('cpu').eval(), losses
