@@ -15,7 +15,8 @@ def plot_all(
         total_losses,
         vae_loss_li,
         classifier_accuracy_li,
-        classifier_loss_li
+        classifier_loss_li,
+        kl_loss_li
 ):
     plt.title('VAE classifier latent space')
     plot_latents(vae_model_classifier, input, labels)
@@ -31,4 +32,8 @@ def plot_all(
 
     plt.title('VAE classifier -- classifier loss')
     plt.plot(classifier_loss_li)
+    plt.show()
+
+    plt.title('VAE classifer -- KL divergence loss')
+    plt.plot(kl_loss_li)
     plt.show()

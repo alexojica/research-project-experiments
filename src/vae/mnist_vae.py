@@ -30,8 +30,10 @@ class VaeEncoder(nn.Module):
         self.fc1 = nn.Linear(MNIST_INPUT_SIZE, HIDDEN_LAYER_SIZE)
 
         # linear layer that takes output of fc1 and transforms it to dim_encoding
-        # TODO: why dim_encoding * 2
+        # dim_encoding * 2, otherweise sigma is null
         self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE, dim_encoding * 2)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(self.device)
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -65,6 +67,9 @@ class VaeDecoder(nn.Module):
 
         # linear layer that outputs to MNIST input size
         self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE, MNIST_INPUT_SIZE)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(self.device)
+
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -95,6 +100,8 @@ class VaeClassifierDecoder(nn.Module):
 
         # outputs both an image plus a 10-element vector for digit classification
         self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE, MNIST_INPUT_SIZE + 10)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(self.device)
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -125,6 +132,9 @@ class VaeAutoencoder(nn.Module):
         self.dim_encoding = dim_encoding
         self.encoder = VaeEncoder(dim_encoding)
         self.decoder = VaeDecoder(dim_encoding)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(self.device)
+
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -147,6 +157,8 @@ class VaeAutoencoderClassifier(nn.Module):
         self.dim_encoding = dim_encoding
         self.encoder = VaeEncoder(dim_encoding)
         self.decoder = VaeClassifierDecoder(dim_encoding)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(self.device)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """
@@ -160,5 +172,10 @@ class VaeAutoencoderClassifier(nn.Module):
 
         # maps the encoded vector to a distribution and generate samples from it
         sampled = sample(encodings, self.dim_encoding)
+        decoded = self.decoder(sampled)
+        return decoded[:, :MNIST_INPUT_SIZE].reshape(-1, 1, 28, 28), decoded[:, MNIST_INPUT_SIZE:]
+
+    def generate_data(self) -> tuple[Tensor, Tensor]:
+        sampled = sample(self.encodings, self.dim_encoding)
         decoded = self.decoder(sampled)
         return decoded[:, :MNIST_INPUT_SIZE].reshape(-1, 1, 28, 28), decoded[:, MNIST_INPUT_SIZE:]

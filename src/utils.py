@@ -168,7 +168,7 @@ def train_vae_classifier(
         training_data,
         alpha=1.0,
         epochs=5
-) -> tuple[nn.Module, list, list, list, list]:
+) -> tuple[nn.Module, list, list, list, list, list]:
     complete_loss_fn = vae_classifier_loss_fn(alpha)
     cl_fn = nn.CrossEntropyLoss()
     vl_fn = vae_loss_fn()
@@ -178,11 +178,11 @@ def train_vae_classifier(
 
     training_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
 
-    # TODO: add part for kl loss as well
     total_losses = []
     classifier_accuracy_li = []
     classifier_loss_li = []
     vae_loss_li = []
+    kl_loss_li = []
 
     for epoch in range(epochs):
         i = 0
@@ -222,12 +222,18 @@ def train_vae_classifier(
                 vae_loss_li.append(
                     vl_fn(input, output[0], vae_classifier_model.encodings, vae_classifier_model.dim_encoding)
                 )
-                print(epoch, loss.item(), end='; ')
 
+                # calculate KL loss
+                kl_loss_li.append(
+                    kl_loss(vae_classifier_model.encodings, vae_classifier_model.dim_encoding)
+                )
+
+                print(epoch, loss.item(), end='; ')
     return (
-        vae_classifier_model.to('cpu').eval(),
+        vae_classifier_model.to('cpu'),
         total_losses,
         classifier_accuracy_li,
         classifier_loss_li,
-        vae_loss_li
+        vae_loss_li,
+        kl_loss_li
     )
