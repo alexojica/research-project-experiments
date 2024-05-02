@@ -2,10 +2,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_latents(model, input, labels):
+def plot_two_d_latents(model, input, labels):
     z = model.encoder(input).detach().numpy()[:, :model.dim_encoding]
+    plt.title('VAE classifier latent space')
     plt.scatter(z[:, 0], z[:, 1], c=labels, cmap='tab10', s=2.)
     plt.colorbar()
+    plt.show()
+
+
+def plot_three_d_latents(model, input, labels):
+    fig = plt.figure(figsize=(16, 9))
+    ax = plt.axes(projection="3d")
+    z = model.encoder(input).detach().numpy()[:, :model.dim_encoding]
+    sctt = ax.scatter3D(z[:, 0], z[:, 1], z[:, 2],
+                        alpha=0.8,
+                        c=labels,
+                        cmap='tab10')
+    plt.title("VAE classifier latent space")
+    fig.colorbar(sctt, ax=ax, shrink=0.5, aspect=5)
     plt.show()
 
 
@@ -33,8 +47,10 @@ def plot_training_result(
         classifier_loss_li,
         kl_loss_li
 ):
-    plt.title('VAE classifier latent space')
-    plot_latents(vae_model_classifier, input, labels)
+    if vae_model_classifier.dim_encoding == 2:
+        plot_two_d_latents(vae_model_classifier, input, labels)
+    elif vae_model_classifier.dim_encoding == 3:
+        plot_three_d_latents(vae_model_classifier, input, labels)
 
     plt.plot(total_losses, label='VAE classifier -- total loss')
     plt.plot(vae_loss_li, label='VAE classifier -- vae loss')
