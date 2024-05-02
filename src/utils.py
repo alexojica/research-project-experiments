@@ -147,9 +147,9 @@ def vae_classifier_loss_fn(alpha):
         alpha * cl_fn(output[1], labels)
 
 
-def fid(x: tensor):
+def frechet_inception_distance(real_x: tensor, syn_x: tensor) -> tensor:
+    assert real_x.shape == syn_x.shape
     fid = FrechetInceptionDistance(feature_dim=2048)
-    fid.update(x, is_real=True)
-    fid.update(x, is_real=False)
-    fid_score = fid.compute()
-    print(fid_score)
+    fid.update(real_x, is_real=True)
+    fid.update(syn_x, is_real=False)
+    return fid.compute()
