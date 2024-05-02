@@ -15,9 +15,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 MNIST_INPUT_SIZE = 784
-HIDDEN_LAYER_SIZE = 512
+HIDDEN_LAYER_SIZE_1 = 512
+HIDDEN_LAYER_SIZE_2 = 256
 DEFAULT_DIMENSION_ENCODING = 2
-
 
 class VaeEncoder(nn.Module):
     def __init__(self, dim_encoding):
@@ -28,11 +28,13 @@ class VaeEncoder(nn.Module):
         super(VaeEncoder, self).__init__()
 
         # linear layer that takes in MNIST input size
-        self.fc1 = nn.Linear(MNIST_INPUT_SIZE, HIDDEN_LAYER_SIZE)
+        self.fc1 = nn.Linear(MNIST_INPUT_SIZE, HIDDEN_LAYER_SIZE_1)
+
+        self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE_1, HIDDEN_LAYER_SIZE_2)
 
         # linear layer that takes output of fc1 and transforms it to dim_encoding
-        # dim_encoding * 2, otherweise sigma is null
-        self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE, dim_encoding * 2)
+        # dim_encoding * 2, otherwise sigma is null
+        self.fc3 = nn.Linear(HIDDEN_LAYER_SIZE_2, dim_encoding * 2)
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -50,8 +52,11 @@ class VaeEncoder(nn.Module):
         # pass through fc1 followed by ReLU activation
         x = F.relu(self.fc1(x))
 
+        # pass through fc1 followed by ReLU activation
+        x = F.relu(self.fc2(x))
+
         # absence of an activation function means that the output can be any real-valued number
-        return self.fc2(x)
+        return self.fc3(x)
 
 
 class VaeDecoder(nn.Module):
@@ -61,12 +66,9 @@ class VaeDecoder(nn.Module):
 
     def __init__(self, dim_encoding):
         super(VaeDecoder, self).__init__()
-
-        # linear layer that takes latent space vectors as input
-        self.fc1 = nn.Linear(dim_encoding, HIDDEN_LAYER_SIZE)
-
-        # linear layer that outputs to MNIST input size
-        self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE, MNIST_INPUT_SIZE)
+        self.fc1 = nn.Linear(dim_encoding, HIDDEN_LAYER_SIZE_2)
+        self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE_2, HIDDEN_LAYER_SIZE_1)
+        self.fc3 = nn.Linear(HIDDEN_LAYER_SIZE_1, MNIST_INPUT_SIZE)
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -76,12 +78,9 @@ class VaeDecoder(nn.Module):
         - x: torch.Size([6, 2])
         - output: torch.Size([6, 1, 28, 28])
         """
-        # pass through fc1 followed by ReLU activation, resulting in x.shape: torch.Size([6, 512])
         x = F.relu(self.fc1(x))
-
-        # sigmoid activation function to map the output to a range between 0 and 1, resulting
-        # in x.shape: torch.Size([6, 784])
-        x = torch.sigmoid(self.fc2(x))
+        x = F.relu(self.fc2(x))
+        x = torch.sigmoid(self.fc3(x))
 
         # match input shape back to 28x28 pixels
         return x.reshape(-1, 1, 28, 28)
@@ -94,11 +93,9 @@ class VaeClassifierDecoder(nn.Module):
 
     def __init__(self, dim_encoding):
         super(VaeClassifierDecoder, self).__init__()
-        self.fc1 = nn.Linear(dim_encoding, HIDDEN_LAYER_SIZE)
-
-        # outputs both an image plus a 10-element vector for digit classification
-        # somehow this works
-        self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE, MNIST_INPUT_SIZE + 10)
+        self.fc1 = nn.Linear(dim_encoding, HIDDEN_LAYER_SIZE_2)
+        self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE_2, HIDDEN_LAYER_SIZE_1)
+        self.fc3 = nn.Linear(HIDDEN_LAYER_SIZE_1, MNIST_INPUT_SIZE + 10)
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -108,12 +105,9 @@ class VaeClassifierDecoder(nn.Module):
         - x: torch.Size([6, 2])
         - output: torch.Size([6, 1, 28, 28]), torch.Size([6, 10])
         """
-        # pass through fc1 followed by ReLU activation, resulting in x.shape: torch.Size([6, 512])
         x = F.relu(self.fc1(x))
-
-        # sigmoid activation function to map the output to a range between 0 and 1, resulting
-        # in x.shape: torch.Size([6, 794])
-        x = torch.sigmoid(self.fc2(x))
+        x = F.relu(self.fc2(x))
+        x = torch.sigmoid(self.fc3(x))
         return x
 
 
@@ -124,7 +118,6 @@ class VaeAutoencoder(nn.Module):
 
     Returns a tensor of a random MNIST image.
     """
-
     def __init__(self, dim_encoding):
         super(VaeAutoencoder, self).__init__()
         self.latent_space_vector = None
