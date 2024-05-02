@@ -52,7 +52,8 @@ def args_parser():
     parser.add_argument('--optimizer', type=str, default='sgd', help="type \
                         of optimizer")
     parser.add_argument('--iid', type=int, default=1,
-                        help='Default set to IID. Set to 0 for non-IID.')
+                        help='Default set to IID. Set to 0 for non-IID. Set 2 for Dirichlet')
+    parser.add_argument('--dirichlet',type=float, default=0.5, help='Default set to 0.5.')
     parser.add_argument('--unequal', type=int, default=0,
                         help='whether to use unequal data splits for  \
                         non-i.i.d setting (use 0 for equal splits)')

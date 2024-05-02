@@ -27,7 +27,7 @@ python src/baseline_main.py --model=mlp --dataset=mnist --epochs=10
 ```
 * Or to run it on GPU (eg: if gpu:0 is available):
 ```
-python src/baseline_main.py --model=mlp --dataset=mnist --gpu=0 --epochs=10
+python src/baseline_main.py --model=mlp --dataset=mnist --gpu=cuda:0 --epochs=10
 ```
 -----
 
@@ -35,11 +35,11 @@ Federated experiment involves training a global model using many local models.
 
 * To run the federated experiment with CIFAR on CNN (IID):
 ```
-python src/federated_main.py --model=cnn --dataset=cifar --gpu=0 --iid=1 --epochs=10
+python src/federated_main.py --model=cnn --dataset=cifar --gpu=cuda:0 --iid=1 --epochs=10
 ```
 * To run the same experiment under non-IID condition:
 ```
-python src/federated_main.py --model=cnn --dataset=cifar --gpu=0 --iid=0 --epochs=10
+python src/federated_main.py --model=cnn --dataset=cifar --gpu=cuda:0 --iid=0 --epochs=10
 ```
 
 You can change the default values of other parameters to simulate different conditions. Refer to the options section.
@@ -56,7 +56,8 @@ The default values for various paramters parsed to the experiment are given in `
 * ```--seed:```     Random Seed. Default set to 1.
 
 #### Federated Parameters
-* ```--iid:```      Distribution of data amongst users. Default set to IID. Set to 0 for non-IID.
+* ```--iid:```      Distribution of data amongst users. Default set to IID (1). Set to 0 for non-IID. Set to 2 for Dirichlet with beta=0.5.
+* ```--dirichlet:``` Useful only in the case when iid=2. Controls the beta parameter of the distribution.
 * ```--num_users:```Number of users. Default is 100.
 * ```--frac:```     Fraction of users to be used for federated updates. Default is 0.1.
 * ```--local_ep:``` Number of local training epochs in each user. Default is 10.

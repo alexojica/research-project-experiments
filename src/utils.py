@@ -5,8 +5,7 @@
 import copy
 import torch
 from torchvision import datasets, transforms
-from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
-from sampling import cifar_iid, cifar_noniid
+from sampling import *
 
 
 def get_dataset(args):
@@ -28,9 +27,11 @@ def get_dataset(args):
                                       transform=apply_transform)
 
         # sample training data amongst users
-        if args.iid:
+        if args.iid == 1:
             # Sample IID user data from Mnist
             user_groups = cifar_iid(train_dataset, args.num_users)
+        elif args.iid == 2:
+            user_groups = split_dirichlet(train_dataset, args.num_users, is_cfar=True, beta=args.dirichlet)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:
@@ -57,9 +58,11 @@ def get_dataset(args):
                                       transform=apply_transform)
 
         # sample training data amongst users
-        if args.iid:
+        if args.iid == 1:
             # Sample IID user data from Mnist
             user_groups = mnist_iid(train_dataset, args.num_users)
+        elif args.iid == 2:
+            user_groups = split_dirichlet(train_dataset, args.num_users, is_cfar=False, beta=args.dirichlet)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:
