@@ -275,7 +275,13 @@ class VaeAutoencoderClassifier(nn.Module):
         )
 
     def generate_data(self, n_samples=32) -> tuple[Tensor, Tensor]:
+        """
+        Generates random data samples (of size n) from the latent space
+        """
         device = next(self.parameters()).device
         input_sample = torch.randn(n_samples, self.dim_encoding).to(device)
+
+        assert(input_sample.shape[0] == n_samples)
+
         output = self.decoder(input_sample)
         return output[:, :MNIST_INPUT_SIZE].reshape(-1, 1, 28, 28), output[:, MNIST_INPUT_SIZE:]

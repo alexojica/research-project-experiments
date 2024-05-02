@@ -4,7 +4,6 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
 from torch import tensor
-import numpy as np
 
 
 class MNISTClassifier(nn.Module):
@@ -46,7 +45,6 @@ class MNISTClassifier(nn.Module):
                 loss.backward()
                 optimizer.step()
             print("Epoch done: ", epoch + 1)
-        print('Finished Training')
 
     def test_model(
             self,
