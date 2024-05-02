@@ -4,12 +4,12 @@
 
 import copy
 import torch
-from torch import Tensor
 from torchvision import datasets, transforms
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
 from sampling import cifar_iid, cifar_noniid
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.distributions.kl import kl_divergence
+from torch.distributions.normal import Normal
 
 
 def get_dataset(args):
@@ -105,48 +105,23 @@ def exp_details(args):
     return
 
 
-# TODO: get this verified
-def get_properties(encodings: Tensor, dim_encoding: int) -> tuple[Tensor, Tensor]:
-    """
-    Extracts the mean (mu) and standard deviation (sd) of the encodings
-    """
-    mu = encodings[:, :dim_encoding]
-    sigma = torch.exp(encodings[:, dim_encoding:])
-    return mu, sigma
-
-
-# TODO: get this verified
-def sample(encodings: Tensor, dim_encoding: int) -> Tensor:
-    """
-    Given encodings and its dimensionality, generates samples its distribution.
-
-    For example: if given 6 data points with 2-dimensional encoding:
-    - encodings: torch.Size([6, 2])
-    - returns: torch.Size([6, 2])
-
-    When called for data generation, encodings seems to be of data loader batch size - 32
-    """
-    mu, sigma = get_properties(encodings, dim_encoding)
-    s = torch.rand(mu.shape, device=encodings.device)
-    return mu + s * torch.sqrt(sigma)
-
-
 def reg_loss_fn():
     mse = nn.MSELoss(reduction='sum')
     return lambda input, output: mse(input, output)
 
 
-# TODO: get this verified
-def kl_loss(model_encodings, dim_encoding):
-    mu, sigma = get_properties(model_encodings, dim_encoding)
-    return 0.5 * torch.sum(sigma**2 + mu**2 - 1 - 2*torch.log(sigma))
+def kl_loss(z_dist):
+    return kl_divergence(z_dist,
+                         Normal(torch.zeros_like(z_dist.mean),
+                                torch.ones_like(z_dist.stddev))
+                         ).sum(-1).sum()
 
 
 def vae_loss_fn():
     reg = reg_loss_fn()
-    return lambda input, output, model_encodings, dim_encoding:\
+    return lambda input, output, z_dist:\
         reg(input, output) +\
-        kl_loss(model_encodings, dim_encoding)
+        kl_loss(z_dist)
 
 
 def vae_classifier_loss_fn(alpha):
@@ -160,82 +135,6 @@ def vae_classifier_loss_fn(alpha):
     vl_fn = vae_loss_fn()
     cl_fn = nn.CrossEntropyLoss()
 
-    return lambda input, output, model_encodings, dim_encoding, labels: \
-        vl_fn(input, output[0], model_encodings, dim_encoding) + \
+    return lambda input, output, z_dist, labels: \
+        vl_fn(input, output[0], z_dist) + \
         alpha * cl_fn(output[1], labels)
-
-
-def train_vae_classifier(
-        vae_classifier_model: nn.Module,
-        training_data,
-        batch_size=64,
-        alpha=1.0,
-        epochs=5
-) -> tuple[nn.Module, list, list, list, list, list]:
-    complete_loss_fn = vae_classifier_loss_fn(alpha)
-    cl_fn = nn.CrossEntropyLoss()
-    vl_fn = vae_loss_fn()
-
-    vae_classifier_model = vae_classifier_model.to('cuda')
-    optimizer = torch.optim.Adam(params=vae_classifier_model.parameters())
-
-    training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
-
-    total_losses = []
-    classifier_accuracy_li = []
-    classifier_loss_li = []
-    vae_loss_li = []
-    kl_loss_li = []
-
-    for epoch in range(epochs):
-        i = 0
-        for input, labels in training_dataloader:
-            input = input.to('cuda')
-            labels = labels.to('cuda')
-            output = vae_classifier_model(input)
-
-            # loss function to back-propagate on
-            loss = complete_loss_fn(
-                input,
-                output,
-                vae_classifier_model.encodings,
-                vae_classifier_model.dim_encoding,
-                labels
-            )
-
-            # back propagation
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            i += 1
-            if i % 100 == 0:
-                total_losses.append(loss.item())
-
-                # calculate accuracy
-                matches_labels = (torch.argmax(output[1], 1) == labels)
-                accuracy = torch.mean(matches_labels.float())
-                classifier_accuracy_li.append(accuracy)
-
-                # calculate cross entropy loss
-                classifier_loss_li.append(
-                    cl_fn(output[1], labels)
-                )
-
-                # calculate VAE loss
-                vae_loss_li.append(
-                    vl_fn(input, output[0], vae_classifier_model.encodings, vae_classifier_model.dim_encoding)
-                )
-
-                # calculate KL loss
-                kl_loss_li.append(
-                    kl_loss(vae_classifier_model.encodings, vae_classifier_model.dim_encoding)
-                )
-        print("Finished epoch: ", epoch+1)
-    return (
-        vae_classifier_model.to('cpu'),
-        total_losses,
-        classifier_accuracy_li,
-        classifier_loss_li,
-        vae_loss_li,
-        kl_loss_li
-    )

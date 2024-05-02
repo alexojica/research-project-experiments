@@ -2,8 +2,9 @@ import torch
 import torch.optim as optim
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch import tensor
+import numpy as np
 
 
 class MNISTClassifier(nn.Module):
@@ -44,13 +45,13 @@ class MNISTClassifier(nn.Module):
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
-            print("Epoch done: ")
+            print("Epoch done: ", epoch + 1)
         print('Finished Training')
 
     def test_model(
             self,
-            testing_data
-    ):
+            testing_data: Dataset
+    ) -> float:
         test_dataloader = DataLoader(testing_data, shuffle=True)
 
         correct = 0
@@ -60,4 +61,19 @@ class MNISTClassifier(nn.Module):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+        return correct / total
+
+    def test_model_syn_img(
+            self,
+            testing_data: tensor,
+            labels: tensor
+    ) -> float:
+        correct = 0
+        total = 0
+        for i, input in enumerate(testing_data):
+            outputs = self.forward(input)
+            _, predicted = torch.max(outputs.data, 1)
+            _, label = torch.max(labels[i], 0)
+            total += 1
+            correct += (predicted == label).sum().item()
         return correct / total
