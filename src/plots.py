@@ -11,11 +11,14 @@ def plot_latents(model, input, labels):
 
 
 def plot_image_data(images: np.ndarray, labels: np.ndarray):
+    """
+    Generate 5 subplots
+    """
     plt.figure()
-    for i, image in enumerate(images):
+    for i in range(5):
         plt.subplot(151 + i)
         plt.axis('off')
-        squeezed_img = np.squeeze(image)
+        squeezed_img = np.squeeze(images[i])
         plt.imshow(squeezed_img)
         digit = np.argmax(labels[i])
         plt.title(digit)
