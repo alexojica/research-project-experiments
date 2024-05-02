@@ -1,47 +1,63 @@
-import tensorflow as tf
-import numpy as np
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense, Input
-from tensorflow.keras.optimizers import SGD
+import torch
+import torch.optim as optim
+from torch import nn
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
+from torch import tensor
 
 
-def neural_network(num_classes, num_pixels) -> tf.keras.Sequential:
-    model = Sequential()
+class MNISTClassifier(nn.Module):
+    def __init__(self, input_size, num_classes):
+        super(MNISTClassifier, self).__init__()
+        self.fc1 = nn.Linear(input_size, 256)
+        self.fc2 = nn.Linear(256, 64)
+        self.fc3 = nn.Linear(64, num_classes)
 
-    # input layer
-    model.add(Input(shape=(num_pixels,)))
+    def forward(self, x: tensor):
+        """
+        x should have shape [_, 1, 28 ,28]
 
-    # hidden layer
-    model.add(Dense(units=256, activation='relu'))
+        This will be flattened to [_, 784]
+        """
+        x = torch.flatten(x, start_dim=1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return F.log_softmax(x, dim=1)
 
-    # hidden layer
-    model.add(Dense(units=64, activation='relu'))
+    def train_model(
+            self,
+            training_data,
+            batch_size,
+            epochs
+    ):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(self.parameters())
+        training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
 
-    # output layer
-    model.add(Dense(num_classes, activation='softmax'))
+        for epoch in range(epochs):
+            for input, labels in training_dataloader:
+                optimizer.zero_grad()
 
-    model.summary()
-    return model
+                # forward + backward + optimize
+                outputs = self.forward(input)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+            print("Epoch done: ")
+        print('Finished Training')
 
+    def test_model(
+            self,
+            testing_data
+    ):
+        test_dataloader = DataLoader(testing_data, shuffle=True)
 
-def train_model(
-        model: tf.keras.Sequential,
-        x_train: np.ndarray,
-        y_train: np.ndarray,
-        learning_rate=0.001,
-        epochs=5,
-        batch_size=32
-):
-    # Optimizer: SGD (Stochastic Gradient Descent)
-    opt = SGD(learning_rate=learning_rate)
-    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
-    model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1)
-
-
-def test_model(
-        model: tf.keras.Sequential,
-        x_test: np.ndarray,
-        y_test: np.ndarray
-):
-    scores = model.evaluate(x_test, y_test, verbose=1)
-    print("Error: ", (100 - scores[1] * 100), "%")
+        correct = 0
+        total = 0
+        for input, labels in test_dataloader:
+            outputs = self.forward(input)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+        return correct / total
