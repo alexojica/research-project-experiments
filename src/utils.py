@@ -127,6 +127,11 @@ def sample(encodings: Tensor, dim_encoding: int) -> Tensor:
     When called for data generation, encodings seems to be of data loader batch size - 32
     """
     mu, sigma = get_properties(encodings, dim_encoding)
+
+    # TODO: random doesn't seem to be working
+    # random seed not changing across different runs unless manually changed seed
+    random_num = torch.randint(low=0, high=1000000000, size=(1,)).item()
+    torch.manual_seed(random_num)
     s = torch.rand(mu.shape, device=encodings.device)
     return mu + s * torch.sqrt(sigma)
 
