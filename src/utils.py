@@ -110,18 +110,22 @@ def reg_loss_fn():
     return lambda input, output: mse(input, output)
 
 
-def kl_loss(z_dist):
-    return kl_divergence(z_dist,
-                         Normal(torch.zeros_like(z_dist.mean),
-                                torch.ones_like(z_dist.stddev))
-                         ).sum(-1).sum()
+def kl_loss():
+    return lambda z_dist: (
+        kl_divergence(z_dist,
+                      Normal(
+                          torch.zeros_like(z_dist.mean),
+                          torch.ones_like(z_dist.stddev)
+                      )
+        ).sum(-1).sum())
 
 
 def vae_loss_fn():
     reg = reg_loss_fn()
-    return lambda input, output, z_dist:\
+    kl_div = kl_loss()
+    return lambda input, output, z_dist: \
         reg(input, output) +\
-        kl_loss(z_dist)
+        kl_div(z_dist)
 
 
 def vae_classifier_loss_fn(alpha):

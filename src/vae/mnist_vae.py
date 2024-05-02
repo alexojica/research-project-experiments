@@ -164,7 +164,6 @@ class VaeAutoencoderClassifier(nn.Module):
     """
     Classifier decoder that returns both images and its corresponding vector of label probabilities
     """
-
     def __init__(self, dim_encoding):
         super(VaeAutoencoderClassifier, self).__init__()
         self.z_dist = None
@@ -210,6 +209,7 @@ class VaeAutoencoderClassifier(nn.Module):
         complete_loss_fn = vae_classifier_loss_fn(alpha)
         cl_fn = nn.CrossEntropyLoss()
         vl_fn = vae_loss_fn()
+        kl_div_fn = kl_loss()
 
         vae_classifier_model = self.to('cuda')
         optimizer = torch.optim.Adam(params=vae_classifier_model.parameters())
@@ -260,9 +260,9 @@ class VaeAutoencoderClassifier(nn.Module):
                         vl_fn(input, output[0], self.z_dist)
                     )
 
-                    # calculate KL loss
+                    # calculate KL divergence loss
                     kl_loss_li.append(
-                        kl_loss(self.z_dist)
+                        kl_div_fn(self.z_dist)
                     )
             print("Finished epoch: ", epoch + 1)
         return (
