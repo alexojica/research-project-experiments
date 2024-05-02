@@ -4,12 +4,15 @@
 
 import copy
 import torch
+from torch import tensor
 from torchvision import datasets, transforms
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
 from sampling import cifar_iid, cifar_noniid
 from torch import nn
 from torch.distributions.kl import kl_divergence
 from torch.distributions.normal import Normal
+from torcheval.metrics import FrechetInceptionDistance
+import torch.nn.functional as F
 
 
 def get_dataset(args):
@@ -142,3 +145,11 @@ def vae_classifier_loss_fn(alpha):
     return lambda input, output, z_dist, labels: \
         vl_fn(input, output[0], z_dist) + \
         alpha * cl_fn(output[1], labels)
+
+
+def fid(x: tensor):
+    fid = FrechetInceptionDistance(feature_dim=2048)
+    fid.update(x, is_real=True)
+    fid.update(x, is_real=False)
+    fid_score = fid.compute()
+    print(fid_score)
