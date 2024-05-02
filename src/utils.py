@@ -123,6 +123,8 @@ def sample(encodings: Tensor, dim_encoding: int) -> Tensor:
     For example: if given 6 data points with 2-dimensional encoding:
     - encodings: torch.Size([6, 2])
     - returns: torch.Size([6, 2])
+
+    When called for data generation, encodings seems to be of data loader batch size - 32
     """
     mu, sigma = get_properties(encodings, dim_encoding)
     s = torch.rand(mu.shape, device=encodings.device)
@@ -166,6 +168,7 @@ def vae_classifier_loss_fn(alpha):
 def train_vae_classifier(
         vae_classifier_model: nn.Module,
         training_data,
+        batch_size=64,
         alpha=1.0,
         epochs=5
 ) -> tuple[nn.Module, list, list, list, list, list]:
@@ -176,7 +179,7 @@ def train_vae_classifier(
     vae_classifier_model = vae_classifier_model.to('cuda')
     optimizer = torch.optim.Adam(params=vae_classifier_model.parameters())
 
-    training_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+    training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
 
     total_losses = []
     classifier_accuracy_li = []
@@ -227,8 +230,7 @@ def train_vae_classifier(
                 kl_loss_li.append(
                     kl_loss(vae_classifier_model.encodings, vae_classifier_model.dim_encoding)
                 )
-
-                print(epoch, loss.item(), end='; ')
+        print("Finished epoch: ", epoch+1)
     return (
         vae_classifier_model.to('cpu'),
         total_losses,

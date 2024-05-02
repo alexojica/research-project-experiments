@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from torch import Tensor
+import numpy as np
 
 
 def plot_latents(model, input, labels):
@@ -8,7 +10,18 @@ def plot_latents(model, input, labels):
     plt.show()
 
 
-def plot_all(
+def plot_image_data(images: np.ndarray, labels: np.ndarray):
+    plt.figure()
+    for i, image in enumerate(images):
+        plt.subplot(151 + i)
+        plt.axis('off')
+        squeezed_img = np.squeeze(image)
+        plt.imshow(squeezed_img)
+        digit = np.argmax(labels[i])
+        plt.title(digit)
+
+
+def plot_training_result(
         input,
         labels,
         vae_model_classifier,
