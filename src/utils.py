@@ -5,7 +5,6 @@
 import copy
 import torch
 from torch import tensor
-from torchvision import datasets, transforms
 from sampling import *
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
 from sampling import cifar_iid, cifar_noniid
@@ -13,7 +12,6 @@ from torch import nn
 from torch.distributions.kl import kl_divergence
 from torch.distributions.normal import Normal
 from torcheval.metrics import FrechetInceptionDistance
-import torch.nn.functional as F
 
 
 def get_dataset(args):
@@ -130,15 +128,21 @@ def kl_loss():
         ).sum(-1).sum())
 
 
-def vae_loss_fn(alpha):
+def vae_loss_fn(beta):
+    """
+    Loss function for the VAE to use for backpropagation. It considers two terms:
+    - reconstruction loss by comparing image quality between input and output
+    - difference between the current and desired latent probability distribution, computed with
+    Kullback-Leibler divergence (KL)
+    """
     reg = reg_loss_fn()
     kl_div = kl_loss()
     return lambda input, output, z_dist: \
-        reg(input, output) + \
+        beta * reg(input, output) + \
         kl_div(z_dist)
 
 
-def vae_classifier_loss_fn(alpha):
+def vae_classifier_loss_fn(alpha, beta):
     """
     Loss function for the VAE with classification to use for backpropagation. It considers three terms:
     - reconstruction loss by comparing image quality between input and output
@@ -146,12 +150,12 @@ def vae_classifier_loss_fn(alpha):
     Kullback-Leibler divergence (KL)
     - Cross-entropy loss to minimize error between the actual and predicted outcomes
     """
-    vl_fn = vae_loss_fn(alpha)
+    vl_fn = vae_loss_fn(beta)
     cl_fn = nn.CrossEntropyLoss()
 
     return lambda input, output, z_dist, labels: \
-        alpha * vl_fn(input, output[0], z_dist) + \
-        cl_fn(output[1], labels)
+        vl_fn(input, output[0], z_dist) + \
+        alpha * cl_fn(output[1], labels)
 
 
 def frechet_inception_distance(real_x: tensor, syn_x: tensor) -> tensor:

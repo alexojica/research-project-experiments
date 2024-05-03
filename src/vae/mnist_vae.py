@@ -156,10 +156,10 @@ class VaeAutoencoder(nn.Module):
             self,
             training_data,
             batch_size=64,
-            alpha=1.0,
+            beta=1.0,
             epochs=5
     ) -> tuple[nn.Module, list, list]:
-        vl_fn = vae_loss_fn(alpha)
+        vl_fn = vae_loss_fn(beta)
         kl_div_fn = kl_loss()
 
         vae_classifier_model = self.to('cuda')
@@ -256,11 +256,12 @@ class VaeAutoencoderClassifier(nn.Module):
             training_data,
             batch_size=64,
             alpha=1.0,
+            beta=1.0,
             epochs=5
     ) -> tuple[nn.Module, list, list, list, list, list]:
-        complete_loss_fn = vae_classifier_loss_fn(alpha)
+        complete_loss_fn = vae_classifier_loss_fn(alpha, beta)
         cl_fn = nn.CrossEntropyLoss()
-        vl_fn = vae_loss_fn(alpha)
+        vl_fn = vae_loss_fn(beta)
         kl_div_fn = kl_loss()
 
         vae_classifier_model = self.to('cuda')

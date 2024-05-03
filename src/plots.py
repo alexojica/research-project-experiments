@@ -4,7 +4,7 @@ import numpy as np
 
 def plot_two_d_latents(model, input, labels):
     input_encodings = model.encoder(input).detach().numpy()[:, :model.dim_encoding]
-    plt.title('VAE classifier latent space')
+    plt.title('VAE latent space')
     plt.scatter(input_encodings[:, 0], input_encodings[:, 1], c=labels, cmap='tab10', s=2.)
     plt.colorbar()
     plt.show()
@@ -18,7 +18,7 @@ def plot_three_d_latents(model, input, labels):
                         alpha=0.8,
                         c=labels,
                         cmap='tab10')
-    plt.title("VAE classifier latent space")
+    plt.title("VAE latent space")
     fig.colorbar(sctt, ax=ax, shrink=0.5, aspect=5)
     plt.show()
 
@@ -44,11 +44,11 @@ def plot_vae_training_result(
     elif vae_model.dim_encoding == 3:
         plot_three_d_latents(vae_model, input, labels)
 
-    plt.plot(vae_loss_li, label='VAE classifier -- vae loss')
+    plt.plot(vae_loss_li, label='Total VAE loss')
     plt.legend()
     plt.show()
 
-    plt.title('VAE classifer -- KL divergence loss')
+    plt.title('KL divergence loss')
     plt.plot(kl_loss_li)
     plt.show()
 
@@ -92,19 +92,19 @@ def plot_vae_classifier_training_result(
     elif vae_model_classifier.dim_encoding == 3:
         plot_three_d_latents(vae_model_classifier, input, labels)
 
-    plt.plot(total_losses, label='VAE classifier -- total loss')
-    plt.plot(vae_loss_li, label='VAE classifier -- vae loss')
+    plt.plot(total_losses, label='Total loss')
+    plt.plot(vae_loss_li, label='VAE loss')
     plt.legend()
     plt.show()
 
-    plt.title('VAE classifier -- accuracy')
+    plt.title('Classification accuracy')
     plt.plot(classifier_accuracy_li)
     plt.show()
 
-    plt.title('VAE classifier -- classifier loss')
+    plt.title('Cross entropy loss')
     plt.plot(classifier_loss_li)
     plt.show()
 
-    plt.title('VAE classifer -- KL divergence loss')
+    plt.title('KL divergence loss')
     plt.plot(kl_loss_li)
     plt.show()
