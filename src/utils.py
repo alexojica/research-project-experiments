@@ -153,3 +153,4 @@ def frechet_inception_distance(real_x: tensor, syn_x: tensor) -> tensor:
     fid.update(real_x, is_real=True)
     fid.update(syn_x, is_real=False)
     return fid.compute()
+
