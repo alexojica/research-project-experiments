@@ -61,7 +61,18 @@ class MNISTClassifier(nn.Module):
             correct += (predicted == labels).sum().item()
         return correct / total
 
-    def test_model_syn_img(
+    def generate_labels(
+            self,
+            input: tensor
+    ) -> tensor:
+        labels = []
+        for img in input:
+            outputs = self.forward(img)
+            _, predicted = torch.max(outputs.data, 1)
+            labels.append(predicted)
+        return torch.stack(labels)
+
+    def test_model_syn_img_label(
             self,
             testing_data: tensor,
             labels: tensor

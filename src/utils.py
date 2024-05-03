@@ -115,7 +115,9 @@ def exp_details(args):
 
 def reg_loss_fn():
     mse = nn.MSELoss(reduction='sum')
-    return lambda input, output: mse(input, output)
+    return lambda input, output: (
+        mse(input, output)
+    )
 
 
 def kl_loss():
@@ -128,11 +130,11 @@ def kl_loss():
         ).sum(-1).sum())
 
 
-def vae_loss_fn():
+def vae_loss_fn(alpha):
     reg = reg_loss_fn()
     kl_div = kl_loss()
     return lambda input, output, z_dist: \
-        reg(input, output) +\
+        reg(input, output) + \
         kl_div(z_dist)
 
 
@@ -144,12 +146,12 @@ def vae_classifier_loss_fn(alpha):
     Kullback-Leibler divergence (KL)
     - Cross-entropy loss to minimize error between the actual and predicted outcomes
     """
-    vl_fn = vae_loss_fn()
+    vl_fn = vae_loss_fn(alpha)
     cl_fn = nn.CrossEntropyLoss()
 
     return lambda input, output, z_dist, labels: \
-        vl_fn(input, output[0], z_dist) + \
-        alpha * cl_fn(output[1], labels)
+        alpha * vl_fn(input, output[0], z_dist) + \
+        cl_fn(output[1], labels)
 
 
 def frechet_inception_distance(real_x: tensor, syn_x: tensor) -> tensor:

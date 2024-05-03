@@ -152,6 +152,65 @@ class VaeAutoencoder(nn.Module):
         self.latent_space_vector = z
         return self.decoder(z)
 
+    def train_model(
+            self,
+            training_data,
+            batch_size=64,
+            alpha=1.0,
+            epochs=5
+    ) -> tuple[nn.Module, list, list]:
+        vl_fn = vae_loss_fn(alpha)
+        kl_div_fn = kl_loss()
+
+        vae_classifier_model = self.to('cuda')
+        optimizer = torch.optim.Adam(params=vae_classifier_model.parameters())
+
+        training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
+
+        vae_loss_li = []
+        kl_loss_li = []
+
+        for epoch in range(epochs):
+            i = 0
+            for input, _ in training_dataloader:
+                input = input.to('cuda')
+                output = vae_classifier_model(input)
+
+                # loss function to back-propagate on
+                loss = vl_fn(input, output, self.z_dist)
+
+                # back propagation
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                i += 1
+                if i % batch_size == 0:
+                    # append vae loss
+                    vae_loss_li.append(loss.item())
+
+                    # calculate KL divergence loss
+                    kl_loss_li.append(
+                        kl_div_fn(self.z_dist)
+                    )
+            print("Finished epoch: ", epoch + 1)
+        return (
+            vae_classifier_model.to('cpu'),
+            vae_loss_li,
+            kl_loss_li
+        )
+
+    def generate_data(self, n_samples=32) -> tuple[Tensor, Tensor]:
+        """
+        Generates random data samples (of size n) from the latent space
+        """
+        device = next(self.parameters()).device
+        input_sample = torch.randn(n_samples, self.dim_encoding).to(device)
+
+        assert(input_sample.shape[0] == n_samples)
+
+        output = self.decoder(input_sample)
+        return output.reshape(-1, 1, 28, 28)
+
 
 class VaeAutoencoderClassifier(nn.Module):
     """
@@ -201,7 +260,7 @@ class VaeAutoencoderClassifier(nn.Module):
     ) -> tuple[nn.Module, list, list, list, list, list]:
         complete_loss_fn = vae_classifier_loss_fn(alpha)
         cl_fn = nn.CrossEntropyLoss()
-        vl_fn = vae_loss_fn()
+        vl_fn = vae_loss_fn(alpha)
         kl_div_fn = kl_loss()
 
         vae_classifier_model = self.to('cuda')
