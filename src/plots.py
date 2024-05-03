@@ -3,9 +3,9 @@ import numpy as np
 
 
 def plot_two_d_latents(model, input, labels):
-    z = model.encoder(input).detach().numpy()[:, :model.dim_encoding]
+    input_encodings = model.encoder(input).detach().numpy()[:, :model.dim_encoding]
     plt.title('VAE classifier latent space')
-    plt.scatter(z[:, 0], z[:, 1], c=labels, cmap='tab10', s=2.)
+    plt.scatter(input_encodings[:, 0], input_encodings[:, 1], c=labels, cmap='tab10', s=2.)
     plt.colorbar()
     plt.show()
 
@@ -13,8 +13,8 @@ def plot_two_d_latents(model, input, labels):
 def plot_three_d_latents(model, input, labels):
     fig = plt.figure(figsize=(16, 9))
     ax = plt.axes(projection="3d")
-    z = model.encoder(input).detach().numpy()[:, :model.dim_encoding]
-    sctt = ax.scatter3D(z[:, 0], z[:, 1], z[:, 2],
+    input_encodings = model.encoder(input).detach().numpy()[:, :model.dim_encoding]
+    sctt = ax.scatter3D(input_encodings[:, 0], input_encodings[:, 1], input_encodings[:, 2],
                         alpha=0.8,
                         c=labels,
                         cmap='tab10')
@@ -23,7 +23,7 @@ def plot_three_d_latents(model, input, labels):
     plt.show()
 
 
-def plot_image_data(images: np.ndarray, labels: np.ndarray):
+def plot_image_data(images: np.ndarray, label_probabilities: np.ndarray):
     """
     Generate 5 subplots
     """
@@ -33,8 +33,18 @@ def plot_image_data(images: np.ndarray, labels: np.ndarray):
         plt.axis('off')
         squeezed_img = np.squeeze(images[i])
         plt.imshow(squeezed_img)
-        digit = np.argmax(labels[i])
+        digit = np.argmax(label_probabilities[i])
         plt.title(digit)
+
+
+def plot_image_data_two(images: np.ndarray, labels: np.ndarray):
+    plt.figure()
+    for i in range(5):
+        plt.subplot(151 + i)
+        plt.axis('off')
+        squeezed_img = np.squeeze(images[i])
+        plt.imshow(squeezed_img)
+        plt.title(labels[i])
 
 
 def plot_training_result(
