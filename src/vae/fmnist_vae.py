@@ -153,12 +153,12 @@ class VaeAutoencoder(nn.Module):
         return self.decoder(z)
 
 
-class VaeAutoencoderClassifier(nn.Module):
+class VaeAutoencoderClassifierFMNIST(nn.Module):
     """
     Classifier decoder that returns both images and its corresponding vector of label probabilities
     """
     def __init__(self, dim_encoding):
-        super(VaeAutoencoderClassifier, self).__init__()
+        super(VaeAutoencoderClassifierFMNIST, self).__init__()
         self.z_dist = None
         self.encodings = None
         self.latent_space_vector = None

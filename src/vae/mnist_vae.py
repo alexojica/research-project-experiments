@@ -212,12 +212,12 @@ class VaeAutoencoder(nn.Module):
         return output.reshape(-1, 1, 28, 28)
 
 
-class VaeAutoencoderClassifier(nn.Module):
+class VaeAutoencoderClassifierMNIST(nn.Module):
     """
     Classifier decoder that returns both images and its corresponding vector of label probabilities
     """
     def __init__(self, dim_encoding):
-        super(VaeAutoencoderClassifier, self).__init__()
+        super(VaeAutoencoderClassifierMNIST, self).__init__()
         self.z_dist = None
         self.encodings = None
         self.latent_space_vector = None

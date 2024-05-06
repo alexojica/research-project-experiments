@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 
+from src.vae.fmnist_vae import VaeAutoencoderClassifierFMNIST
+from src.vae.mnist_vae import VaeAutoencoderClassifierMNIST
 from utils import get_dataset
 from options import args_parser
 from update import test_inference
@@ -33,6 +35,15 @@ if __name__ == '__main__':
             global_model = CNNFashion_Mnist(args=args)
         elif args.dataset == 'cifar':
             global_model = CNNCifar(args=args)
+    # BUILD MODEL
+    elif args.model == 'vae':
+        # Convolutional neural netork
+        if args.dataset == 'mnist':
+            global_model = VaeAutoencoderClassifierMNIST()
+        elif args.dataset == 'fmnist':
+            global_model = VaeAutoencoderClassifierFMNIST()
+        # elif args.dataset == 'cifar':
+            #TODO: Implement VAE for CIFAR
     elif args.model == 'mlp':
         # Multi-layer preceptron
         img_size = train_dataset[0][0].shape
