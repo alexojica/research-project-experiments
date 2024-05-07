@@ -75,16 +75,29 @@ def get_dataset(args):
     return train_dataset, test_dataset, user_groups
 
 
-def average_weights(w):
+def average_weights(w, args):
     """
     Returns the average of the weights.
     """
-    w_avg = copy.deepcopy(w[0])
-    for key in w_avg.keys():
-        for i in range(1, len(w)):
-            w_avg[key] += w[i][key]
-        w_avg[key] = torch.div(w_avg[key], len(w))
-    return w_avg
+    if args.model == 'cgan':
+        w_avg_g = copy.deepcopy(w[0]['generator'])
+        w_avg_d = copy.deepcopy(w[0]['discriminator'])
+        for key in w_avg_g.keys():
+            for i in range(1, len(w)):
+                w_avg_g[key] += w[i]['generator'][key]
+            w_avg_g[key] = torch.div(w_avg_g[key], len(w))
+        for key in w_avg_d.keys():
+            for i in range(1, len(w)):
+                w_avg_d[key] += w[i]['discriminator'][key]
+            w_avg_d[key] = torch.div(w_avg_d[key], len(w))
+        return {'generator': w_avg_g, 'discriminator': w_avg_d}
+    else:
+        w_avg = copy.deepcopy(w[0])
+        for key in w_avg.keys():
+            for i in range(1, len(w)):
+                w_avg[key] += w[i][key]
+            w_avg[key] = torch.div(w_avg[key], len(w))
+        return w_avg
 
 
 def exp_details(args):

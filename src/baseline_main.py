@@ -159,8 +159,8 @@ if __name__ == '__main__':
                 d_g_z2 = fake_output.mean()
                 optimizer_G.step()
 
-                if batch_idx % 100 == 0:
-                    print(f"Epoch {epoch + 1}, G Loss: {g_loss.item()}, D Loss: {d_loss.item()}")
+                # if batch_idx % 100 == 0:
+                #     print(f"Epoch {epoch + 1}, G Loss: {g_loss.item()}, D Loss: {d_loss.item()}")
             else:
                 images, labels = images.to(device), labels.to(device)
 
@@ -180,30 +180,30 @@ if __name__ == '__main__':
             loss_avg = sum(batch_loss)/len(batch_loss)
             print('\nTrain loss:', loss_avg)
             epoch_loss.append(loss_avg)
-        elif (epoch + 1) % 10 == 0:
-            with torch.no_grad():
-            # Switch model to eval mode.
-                global_model.eval()  # Set the model to evaluation mode
-                # Create a figure to display images
-                fig, axs = plt.subplots(1, 10, figsize=(15, 3))
-
-                # Generate one image per label
-                for label in range(10):
-                    z = torch.randn(1, 100, device=device)  # Generate random noise
-                    labels = torch.LongTensor([label]).to(device)  # Create a tensor for the label
-
-                    with torch.no_grad():  # No need to track gradients
-                        generated_image = global_model(z, labels).detach().cpu()
-
-                    # Assuming output image is 1x28x28 (as in MNIST), adjust if different
-                    generated_image = generated_image.view(generated_image.size(1), generated_image.size(2), generated_image.size(3))  # Reshape image
-                    axs[label].imshow(generated_image.permute(1, 2, 0).squeeze(), cmap='gray' if generated_image.size(0) == 1 else None)
-                    axs[label].set_title(f'Label: {label}')
-                    axs[label].axis('off')
-
-                plt.tight_layout()
-                plt.show()
-                # vutils.save_image(sr.detach(), os.path.join("runs", f"GAN_epoch_{epoch}.png"), normalize=True)
+        # elif (epoch + 1) % 10 == 0:
+        #     with torch.no_grad():
+        #     # Switch model to eval mode.
+        #         global_model.eval()  # Set the model to evaluation mode
+        #         # Create a figure to display images
+        #         fig, axs = plt.subplots(1, 10, figsize=(15, 3))
+        #
+        #         # Generate one image per label
+        #         for label in range(10):
+        #             z = torch.randn(1, 100, device=device)  # Generate random noise
+        #             labels = torch.LongTensor([label]).to(device)  # Create a tensor for the label
+        #
+        #             with torch.no_grad():  # No need to track gradients
+        #                 generated_image = global_model(z, labels).detach().cpu()
+        #
+        #             # Assuming output image is 1x28x28 (as in MNIST), adjust if different
+        #             generated_image = generated_image.view(generated_image.size(1), generated_image.size(2), generated_image.size(3))  # Reshape image
+        #             axs[label].imshow(generated_image.permute(1, 2, 0).squeeze(), cmap='gray' if generated_image.size(0) == 1 else None)
+        #             axs[label].set_title(f'Label: {label}')
+        #             axs[label].axis('off')
+        #
+        #         plt.tight_layout()
+        #         plt.show()
+        #        # vutils.save_image(sr.detach(), os.path.join("runs", f"GAN_epoch_{epoch}.png"), normalize=True)
 
     if args.model != 'cgan':
         torch.save(global_model.state_dict(), os.path.join("weights", f"GAN-last.pth"))
