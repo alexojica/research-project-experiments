@@ -216,14 +216,17 @@ class VaeAutoencoderClassifier(nn.Module):
     """
     Classifier decoder that returns both images and its corresponding vector of label probabilities
     """
-    def __init__(self, dim_encoding):
+    def __init__(self, dim_encoding=2):
         super(VaeAutoencoderClassifier, self).__init__()
+        self.alpha = 5000.0
+        self.beta = 1.0
         self.z_dist = None
         self.encodings = None
         self.latent_space_vector = None
         self.dim_encoding = dim_encoding
         self.encoder = VaeEncoder(dim_encoding)
         self.decoder = VaeClassifierDecoder(dim_encoding)
+        self.losses = []
 
     def reparameterize(self, encodings: Tensor) -> Tensor:
         mu = encodings[:, :self.dim_encoding]
@@ -251,6 +254,8 @@ class VaeAutoencoderClassifier(nn.Module):
         decoded = self.decoder(z)
         return decoded[:, :MNIST_INPUT_SIZE].reshape(-1, 1, 28, 28), decoded[:, MNIST_INPUT_SIZE:]
 
+
+
     def train_model(
             self,
             training_data,
@@ -263,13 +268,13 @@ class VaeAutoencoderClassifier(nn.Module):
         cl_fn = nn.CrossEntropyLoss()
         vl_fn = vae_loss_fn(beta)
         kl_div_fn = kl_loss()
-
+        self.alpha = alpha
+        self.beta = beta
         vae_classifier_model = self.to('cuda')
         optimizer = torch.optim.Adam(params=vae_classifier_model.parameters())
 
         training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
 
-        total_losses = []
         classifier_accuracy_li = []
         classifier_loss_li = []
         vae_loss_li = []
@@ -283,6 +288,13 @@ class VaeAutoencoderClassifier(nn.Module):
                 output = vae_classifier_model(input)
 
                 # loss function to back-propagate on
+                #
+                # print("********************")
+                # print(input.shape)
+                # print(output[0].shape)
+                # print(output[1].shape)
+                # print(labels.shape)
+
                 loss = complete_loss_fn(
                     input,
                     output,
@@ -296,7 +308,7 @@ class VaeAutoencoderClassifier(nn.Module):
                 optimizer.step()
                 i += 1
                 if i % batch_size == 0:
-                    total_losses.append(loss.item())
+                    self.losses.append(loss.item())
 
                     # calculate accuracy
                     matches_labels = (torch.argmax(output[1], 1) == labels)
@@ -320,7 +332,7 @@ class VaeAutoencoderClassifier(nn.Module):
             print("Finished epoch: ", epoch + 1)
         return (
             vae_classifier_model.to('cpu'),
-            total_losses,
+            self.losses,
             classifier_accuracy_li,
             classifier_loss_li,
             vae_loss_li,
