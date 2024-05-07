@@ -16,8 +16,7 @@ from tensorboardX import SummaryWriter
 from options import args_parser
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import get_dataset, average_weights, exp_details
-
+from utils import get_dataset, average_weights, exp_details, fed_avg
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -79,7 +78,7 @@ if __name__ == '__main__':
         global_model.train()
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
-
+        dataset_size_per_client = [len(user_groups[i]) for i in idxs_users]
         for idx in idxs_users:
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger)
@@ -89,7 +88,7 @@ if __name__ == '__main__':
             local_losses.append(copy.deepcopy(loss))
 
         # update global weights
-        global_weights = average_weights(local_weights)
+        global_weights = fed_avg(local_weights, dataset_size_per_client)
 
         # update global weights
         global_model.load_state_dict(global_weights)

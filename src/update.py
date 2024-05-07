@@ -129,7 +129,7 @@ def test_inference(args, model, test_dataset):
         # Inference
         outputs = model(images)
         batch_loss = criterion(outputs, labels)
-        loss += batch_loss.item()
+        loss += batch_loss.item()/len(testloader)
 
         # Prediction
         _, pred_labels = torch.max(outputs, 1)

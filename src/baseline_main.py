@@ -61,7 +61,8 @@ if __name__ == '__main__':
     trainloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     criterion = torch.nn.NLLLoss().to(device)
     epoch_loss = []
-
+    test_losses = []
+    test_accs = []
     for epoch in tqdm(range(args.epochs)):
         batch_loss = []
 
@@ -83,16 +84,32 @@ if __name__ == '__main__':
         loss_avg = sum(batch_loss)/len(batch_loss)
         print('\nTrain loss:', loss_avg)
         epoch_loss.append(loss_avg)
+        test_acc, test_loss = test_inference(args, global_model, test_dataset)
+        test_losses.append(test_loss)
+        test_accs.append(test_acc)
+        print('Test on', len(test_dataset), 'samples')
+        print("Test Accuracy: {:.2f}%".format(100 * test_acc))
 
     # Plot loss
     plt.figure()
     plt.plot(range(len(epoch_loss)), epoch_loss)
     plt.xlabel('epochs')
     plt.ylabel('Train loss')
-    plt.savefig('../save/nn_{}_{}_{}.png'.format(args.dataset, args.model,
+    plt.savefig('../save/nn_train_{}_{}_{}.png'.format(args.dataset, args.model,
                                                  args.epochs))
 
     # testing
-    test_acc, test_loss = test_inference(args, global_model, test_dataset)
-    print('Test on', len(test_dataset), 'samples')
-    print("Test Accuracy: {:.2f}%".format(100*test_acc))
+    plt.figure()
+    plt.plot(range(len(test_losses)), test_losses)
+    plt.xlabel('epochs')
+    plt.ylabel('Test loss')
+    plt.savefig('../save/nn_test_loss_{}_{}_{}.png'.format(args.dataset, args.model,
+                                                 args.epochs))
+
+    # testing
+    plt.figure()
+    plt.plot(range(len(test_accs)), test_accs)
+    plt.xlabel('epochs')
+    plt.ylabel('Test accuracy')
+    plt.savefig('../save/nn_test_acc_{}_{}_{}.png'.format(args.dataset, args.model,
+                                                 args.epochs))
