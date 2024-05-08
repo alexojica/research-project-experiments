@@ -1,18 +1,12 @@
-import os
-import sys
-
-from torch.utils.data import DataLoader
-from torch.distributions.normal import Normal
-
-module_to_import = os.path.dirname(sys.path[0])
-sys.path.append(module_to_import)
-
-from utils import kl_loss, vae_loss_fn, vae_classifier_loss_fn
+from src.utils import kl_loss, vae_loss_fn, vae_classifier_loss_fn
 
 import torch
 from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torch.distributions.normal import Normal
+
 
 FMNIST_INPUT_SIZE = 784
 HIDDEN_LAYER_SIZE_1 = 512
@@ -59,33 +53,6 @@ class VaeEncoder(nn.Module):
         return self.fc3(x)
 
 
-class VaeDecoder(nn.Module):
-    """
-    Decoder that outputs 28x28 pixel images from the latent space vectors
-    """
-
-    def __init__(self, dim_encoding):
-        super(VaeDecoder, self).__init__()
-        self.fc1 = nn.Linear(dim_encoding, HIDDEN_LAYER_SIZE_2)
-        self.fc2 = nn.Linear(HIDDEN_LAYER_SIZE_2, HIDDEN_LAYER_SIZE_1)
-        self.fc3 = nn.Linear(HIDDEN_LAYER_SIZE_1, FMNIST_INPUT_SIZE)
-
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        Takes in Tensor of the latent space vectors and outputs a 28x28 pixel image
-
-        For example, given 6 data points as input and 2-dimensional latent space:
-        - x: torch.Size([6, 2])
-        - output: torch.Size([6, 1, 28, 28])
-        """
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = torch.sigmoid(self.fc3(x))
-
-        # match input shape back to 28x28 pixels
-        return x.reshape(-1, 1, 28, 28)
-
-
 class VaeClassifierDecoder(nn.Module):
     """
     Classifier decoder that outputs both images and its corresponding vector of label probabilities
@@ -109,48 +76,6 @@ class VaeClassifierDecoder(nn.Module):
         x = F.relu(self.fc2(x))
         x = torch.sigmoid(self.fc3(x))
         return x
-
-
-class VaeAutoencoder(nn.Module):
-    """
-    Variational Autoencoder. VAEs extend the concept of AEs by mapping the input data to a distribution
-    (usually a multivariate normal distribution). Generates data by sampling from the learned latent space.
-
-    Returns a tensor of a random MNIST image.
-    """
-    def __init__(self, dim_encoding):
-        super(VaeAutoencoder, self).__init__()
-        self.latent_space_vector = None
-        self.encodings = None
-        self.z_dist = None
-        self.dim_encoding = dim_encoding
-        self.encoder = VaeEncoder(dim_encoding)
-        self.decoder = VaeDecoder(dim_encoding)
-
-    def reparameterize(self, encodings: Tensor) -> Tensor:
-        mu = encodings[:, :self.dim_encoding]
-
-        # must do exponential, otherwise get value error that not all positive
-        sigma = torch.exp(encodings[:, self.dim_encoding:])
-        z_dist = Normal(mu, sigma)
-        self.z_dist = z_dist
-        z = z_dist.rsample()
-        return z
-
-    def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
-        """
-        After encoder compresses input data into encodings, this method performs re-parameterization to convert
-        them to a latent space vector (has normal distribution).
-
-        Decoder then returns a tensor of a random MNIST image.
-        """
-        encodings = self.encoder(x)
-        self.encodings = encodings
-        z = self.reparameterize(encodings)
-
-        assert z.shape[1] == self.dim_encoding
-        self.latent_space_vector = z
-        return self.decoder(z)
 
 
 class VaeAutoencoderClassifier(nn.Module):
