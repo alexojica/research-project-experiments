@@ -185,7 +185,7 @@ class VaeAutoencoder(nn.Module):
                 loss.backward()
                 optimizer.step()
                 i += 1
-                if i % batch_size == 0:
+                if i % 100 == 0:
                     # append vae loss
                     vae_loss_li.append(loss.item())
 
@@ -308,7 +308,7 @@ class VaeAutoencoderClassifier(nn.Module):
                 loss.backward()
                 optimizer.step()
                 i += 1
-                if i % batch_size == 0:
+                if i % 100 == 0:
                     self.losses.append(loss.item())
 
                     # calculate accuracy
