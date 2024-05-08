@@ -109,6 +109,7 @@ class CIFAR10Classifier(nn.Module):
     def __init__(self):
         super(CIFAR10Classifier, self).__init__()
         self.conv_layer = nn.Sequential(
+
             # Conv Layer block 1
             nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
@@ -124,7 +125,6 @@ class CIFAR10Classifier(nn.Module):
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Dropout2d(p=0.5),
 
             # Conv Layer block 3
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
@@ -136,12 +136,10 @@ class CIFAR10Classifier(nn.Module):
         )
 
         self.fc_layer = nn.Sequential(
-            nn.Dropout(p=0.1),
             nn.Linear(4096, 1024),
             nn.ReLU(inplace=True),
             nn.Linear(1024, 512),
             nn.ReLU(inplace=True),
-            nn.Dropout(p=0.1),
             nn.Linear(512, 10)
         )
 
@@ -162,13 +160,15 @@ class CIFAR10Classifier(nn.Module):
             self,
             training_data,
             batch_size,
+            learning_rate,
             epochs
     ):
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(self.parameters(), lr=.01)
+        optimizer = optim.SGD(self.parameters(), lr=learning_rate)
         training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
 
         for epoch in range(epochs):
+            self.train()
             for input, labels in training_dataloader:
                 if train_on_gpu:
                     input, labels = input.cuda(), labels.cuda()
@@ -192,10 +192,10 @@ class CIFAR10Classifier(nn.Module):
         for input, labels in test_dataloader:
             if train_on_gpu:
                 input, labels = input.cuda(), labels.cuda()
-            outputs = self.forward(input)
-            _, predicted = torch.max(outputs.data, 1)
+            output = self.forward(input)
+            _, pred = torch.max(output, 1)
             total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            correct += (pred == labels).sum().item()
         return correct / total
 
     def generate_labels(
