@@ -102,6 +102,8 @@ KERNEL_SIZE = 4
 STRIDE_LENGTH = 2
 PADDING_SIZE = 1
 
+train_on_gpu = torch.cuda.is_available()
+
 
 class CIFAR10Classifier(nn.Module):
     def __init__(self):
@@ -122,7 +124,7 @@ class CIFAR10Classifier(nn.Module):
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Dropout2d(p=0.05),
+            nn.Dropout2d(p=0.5),
 
             # Conv Layer block 3
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
@@ -163,11 +165,13 @@ class CIFAR10Classifier(nn.Module):
             epochs
     ):
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(self.parameters())
+        optimizer = optim.SGD(self.parameters(), lr=.01)
         training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
 
         for epoch in range(epochs):
             for input, labels in training_dataloader:
+                if train_on_gpu:
+                    input, labels = input.cuda(), labels.cuda()
                 optimizer.zero_grad()
 
                 # forward + backward + optimize
@@ -186,6 +190,8 @@ class CIFAR10Classifier(nn.Module):
         correct = 0
         total = 0
         for input, labels in test_dataloader:
+            if train_on_gpu:
+                input, labels = input.cuda(), labels.cuda()
             outputs = self.forward(input)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
