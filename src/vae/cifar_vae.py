@@ -38,10 +38,10 @@ class VaeAutoencoderClassifier(nn.Module):
         self.conv3 = nn.Conv2d(64, 128, 3, stride=2, padding=1)
         self.flatten = nn.Flatten()
 
-        self.linear_mean = nn.Linear(2048, 100)
-        self.linear_logvar = nn.Linear(2048, 100)
+        self.mu = nn.Linear(2048, dim_encoding)
+        self.sigma = nn.Linear(2048, dim_encoding)
 
-        self.linear = nn.Linear(100, 2048)
+        self.linear = nn.Linear(dim_encoding, 2048)
         self.reshape = Reshape(-1, 128, 4, 4)
         self.deconv1 = nn.ConvTranspose2d(128, 64, 3, stride=2, padding=0)
         self.deconv2 = nn.ConvTranspose2d(64, 32, 3, stride=2, padding=1)
@@ -56,6 +56,7 @@ class VaeAutoencoderClassifier(nn.Module):
         x = F.silu(self.conv2(x))
         x = self.conv3(x)
         x = self.flatten(x)
+        self.encodings = x
         return self.reparameterize(x)
 
     def decode(self, z):
@@ -69,71 +70,71 @@ class VaeAutoencoderClassifier(nn.Module):
         return z
 
     def reparameterize(self, encodings: Tensor) -> Tensor:
-        mu = encodings[:, :self.dim_encoding]
+        mu = self.mu(encodings)
+        sigma = F.softplus(self.sigma(encodings))
 
-        # must do exponential, otherwise get value error that not all positive
-        sigma = torch.exp(encodings[:, self.dim_encoding:])
+        # both should be of (<batch_size>, <dim_encoding>)
+        assert mu.shape == sigma.shape
+
         z_dist = Normal(mu, sigma)
         self.z_dist = z_dist
         z = z_dist.rsample()
-        return z
-
-    def forward(self, x):
-        # sample latent code z from q given x.
-        encodings = self.encoder(x)
-        self.encodings = encodings
-        z = self.reparameterize(encodings)
-
-        assert z.shape[1] == self.dim_encoding
         self.latent_space_vector = z
-        return self.decoder(z)
+        return z
 
     def forward(self, x):
         z = self.encode(x)
-        z = self.decode(z)
-        return z
+        decoded = self.decode(z)
+        # print(decoded.shape)
+        return decoded
 
-    # def train_model(
-    #         self,
-    #         training_data,
-    #         batch_size=64,
-    #         alpha=1.0,
-    #         beta=1.0,
-    #         epochs=5,
-    #         learning_rate=0.01
-    # ) -> tuple[nn.Module, list]:
-    #     complete_loss_fn = vae_classifier_loss_fn(alpha, beta)
-    #
-    #     vae_classifier_model = self.to('cuda')
-    #     optimizer = torch.optim.Adam(
-    #         params=vae_classifier_model.parameters(),
-    #         lr=learning_rate
-    #     )
-    #
-    #     training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
-    #
-    #     total_losses = []
-    #
-    #     for epoch in range(epochs):
-    #         for input, labels in training_dataloader:
-    #             input = input.to('cuda')
-    #             labels = labels.to('cuda')
-    #             output = vae_classifier_model(input)
-    #
-    #             # loss function to back-propagate on
-    #             loss = complete_loss_fn(
-    #                 input,
-    #                 output,
-    #                 self.z_dist,
-    #                 labels
-    #             )
-    #
-    #             # back propagation
-    #             optimizer.zero_grad()
-    #             loss.backward()
-    #             optimizer.step()
-    #         print("Finished epoch: ", epoch + 1)
-    #     return (
-    #         vae_classifier_model.to('cpu'),
-    #         total_losses
-    #     )
+    def train_model(
+            self,
+            training_data,
+            batch_size=64,
+            beta=1.0,
+            epochs=5,
+            learning_rate=0.01
+    ) -> tuple[nn.Module, list]:
+        vl_fn = vae_loss_fn(beta)
+        kl_div_fn = kl_loss()
+
+        vae_classifier_model = self.to('cuda')
+        optimizer = torch.optim.Adam(
+            params=vae_classifier_model.parameters(),
+            lr=learning_rate
+        )
+
+        training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
+
+        vae_loss_li = []
+        kl_loss_li = []
+
+        for epoch in range(epochs):
+            i = 0
+            for input, _ in training_dataloader:
+                input = input.to('cuda')
+                output = vae_classifier_model(input)
+
+                # loss function to back-propagate on
+                loss = vl_fn(input, output, self.z_dist)
+
+                # back propagation
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                i += 1
+                if i % 100 == 0:
+                    # append vae loss
+                    vae_loss_li.append(loss.item())
+
+                    # calculate KL divergence loss
+                    kl_loss_li.append(
+                        kl_div_fn(self.z_dist)
+                    )
+            print("Finished epoch: ", epoch + 1)
+
+        return (
+            vae_classifier_model.to('cpu'),
+            vae_loss_li
+        )
