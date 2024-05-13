@@ -85,7 +85,6 @@ class VaeAutoencoderClassifier(nn.Module):
     def forward(self, x):
         z = self.encode(x)
         decoded = self.decode(z)
-        # print(decoded.shape)
         return decoded
 
     def train_model(
@@ -145,7 +144,9 @@ class VaeAutoencoderClassifier(nn.Module):
         device = next(self.parameters()).device
         input_sample = torch.randn(n_samples, self.dim_encoding).to(device)
 
+        # print(input_sample)
+
         assert(input_sample.shape[0] == n_samples)
 
         output = self.decode(input_sample)
-        return output.reshape(-1, 3, 32, 32)
+        return output.reshape(-1, 32, 32, 3)
