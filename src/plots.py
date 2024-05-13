@@ -48,7 +48,8 @@ def plot_vae_training_result(
         labels,
         vae_model,
         vae_loss_li,
-        kl_loss_li
+        kl_loss_li,
+        recons_loss_li
 ):
     if vae_model.dim_encoding == 2:
         plot_two_d_latents(vae_model, input, labels)
@@ -61,6 +62,10 @@ def plot_vae_training_result(
 
     plt.title('KL divergence loss')
     plt.plot(kl_loss_li)
+    plt.show()
+
+    plt.title('Reconstruction loss')
+    plt.plot(recons_loss_li)
     plt.show()
 
 

@@ -83,8 +83,8 @@ class VaeAutoencoder(nn.Module):
             batch_size=64,
             beta=0.000075,
             epochs=5,
-            learning_rate=0.01
-    ) -> tuple[nn.Module, list, list]:
+            learning_rate=0.001
+    ) -> tuple[nn.Module, list, list, list]:
         global train_loss_KL, train_loss_reconstruction, train_loss_total
         criterion = nn.MSELoss()
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -103,7 +103,6 @@ class VaeAutoencoder(nn.Module):
 
             for input, _ in training_dataloader:
                 input = input.to(device)
-
                 mean, var, outputs = self(input)
 
                 optimizer.zero_grad()
@@ -137,7 +136,8 @@ class VaeAutoencoder(nn.Module):
         return (
             self.to('cpu'),
             train_losses_total,
-            train_losses_KL
+            train_losses_KL,
+            train_losses_reconstruction
         )
 
     def generate_data(self, n_samples=32) -> tensor:
