@@ -4,8 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from src.utils import vae_loss_fn, kl_loss
-
 device = device('cuda' if cuda.is_available() else 'cpu')
 
 
@@ -88,7 +86,6 @@ class VaeAutoencoder(nn.Module):
         global train_loss_KL, train_loss_reconstruction, train_loss_total
         criterion = nn.MSELoss()
         optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
-        KL_weight = beta  # The KL divergence is much larger than MAE loss, scaling it down
 
         training_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
 
@@ -107,31 +104,21 @@ class VaeAutoencoder(nn.Module):
 
                 optimizer.zero_grad()
                 loss1 = criterion(outputs, input)
-                loss2 = torch.mean(
+                loss2 = beta * torch.mean(
                     -0.5 * torch.sum(1 + var - mean ** 2 - torch.exp(var), axis=1),
                     axis=0
                 )
-
-                loss = loss1 + KL_weight * loss2
+                # print("Time")
+                # print(loss1)
+                # print(loss2)
+                loss = loss1 + loss2
                 loss.backward()
                 optimizer.step()
                 with torch.no_grad():
                     train_losses_reconstruction.append(loss1.item())
                     train_losses_KL.append(loss2.item())
                     train_losses_total.append(loss.item())
-                    train_loss_reconstruction += loss1.item() * input.size(0)
-                    train_loss_KL += loss2.item() * input.size(0)
-                    train_loss_total += loss.item() * input.size(0)
             print("Finished epoch: ", epoch + 1)
-
-
-        train_loss_total /= len(training_dataloader)
-        train_loss_reconstruction /= len(training_dataloader)
-        train_loss_KL /= len(training_dataloader)
-
-        train_losses_total_avg.append(train_loss_total)
-        train_losses_reconstruction_avg.append(train_loss_reconstruction)
-        train_losses_KL_avg.append(train_loss_KL)
 
         return (
             self.to('cpu'),
@@ -146,8 +133,5 @@ class VaeAutoencoder(nn.Module):
         """
         device = next(self.parameters()).device
         input_sample = torch.randn(n_samples, self.dim_encoding).to(device)
-
-        assert(input_sample.shape[0] == n_samples)
-
-        output = self.decoder(input_sample)
-        return output.reshape(-1, 1, 28, 28)
+        assert input_sample.shape[0] == n_samples
+        return self.decode(input_sample)
