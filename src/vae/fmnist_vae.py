@@ -96,6 +96,7 @@ class VaeAutoencoderClassifier(nn.Module):
 
         # must do exponential, otherwise get value error that not all positive
         sigma = torch.exp(encodings[:, self.dim_encoding:])
+
         z_dist = Normal(mu, sigma)
         self.z_dist = z_dist
         z = z_dist.rsample()
