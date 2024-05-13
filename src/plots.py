@@ -39,9 +39,8 @@ def plot_cifar_image(images: np.ndarray):
     for i in range(5):
         plt.subplot(151 + i)
         plt.axis('off')
-        transposed_array = np.transpose(images[i], (1, 2, 0))
-        print(transposed_array.shape)
-        plt.imshow(transposed_array)
+        # image_array = (images[i] + 1) / 2
+        plt.imshow(images[i])
 
 
 def plot_vae_training_result(
