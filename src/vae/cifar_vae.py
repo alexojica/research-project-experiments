@@ -133,8 +133,19 @@ class VaeAutoencoderClassifier(nn.Module):
                         kl_div_fn(self.z_dist)
                     )
             print("Finished epoch: ", epoch + 1)
-
         return (
             vae_classifier_model.to('cpu'),
             vae_loss_li
         )
+
+    def generate_data(self, n_samples=32) -> Tensor:
+        """
+        Generates random data samples (of size n) from the latent space
+        """
+        device = next(self.parameters()).device
+        input_sample = torch.randn(n_samples, self.dim_encoding).to(device)
+
+        assert(input_sample.shape[0] == n_samples)
+
+        output = self.decode(input_sample)
+        return output.reshape(-1, 3, 32, 32)
