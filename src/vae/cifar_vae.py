@@ -86,9 +86,9 @@ class VaeAutoencoderClassifier(nn.Module):
             learning_rate=0.01
     ) -> tuple[nn.Module, list]:
         mse = nn.MSELoss(reduction='sum')
-        vae_classifier_model = self.to('cuda')
+
         optimizer = torch.optim.Adam(
-            params=vae_classifier_model.parameters(),
+            params=self.parameters(),
             lr=learning_rate
         )
 
@@ -100,8 +100,7 @@ class VaeAutoencoderClassifier(nn.Module):
         for epoch in range(epochs):
             i = 0
             for input, _ in training_dataloader:
-                # input = input.to('cuda')
-                mean, var, output = vae_classifier_model(input)
+                mean, var, output = self(input)
 
                 optimizer.zero_grad()
 
