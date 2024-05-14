@@ -180,6 +180,8 @@ class VaeAutoencoder(nn.Module):
                 # loss function to back-propagate on
                 loss = vl_fn(input, output, self.z_dist)
 
+                print(loss)
+
                 # back propagation
                 optimizer.zero_grad()
                 loss.backward()
