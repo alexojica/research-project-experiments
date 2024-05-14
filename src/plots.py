@@ -28,8 +28,19 @@ def plot_image(images: np.ndarray):
     for i in range(5):
         plt.subplot(151 + i)
         plt.axis('off')
+        print(images[i].shape)
         squeezed_img = np.squeeze(images[i])
+        print(squeezed_img.shape)
         plt.imshow(squeezed_img)
+
+
+def plot_cifar_image(images: np.ndarray):
+    plt.figure()
+    for i in range(5):
+        plt.subplot(151 + i)
+        plt.axis('off')
+        # image_array = (images[i] + 1) / 2
+        plt.imshow(images[i])
 
 
 def plot_vae_training_result(

@@ -1,18 +1,19 @@
-import os
-import sys
+# import os
+# import sys
 
-from torch.utils.data import DataLoader
-from torch.distributions.normal import Normal
+# module_to_import = os.path.dirname(sys.path[0])
+# sys.path.append(module_to_import)
+# print(module_to_import)
 
-module_to_import = os.path.dirname(sys.path[0])
-sys.path.append(module_to_import)
-
-from utils import kl_loss, vae_loss_fn, vae_classifier_loss_fn
+from src.utils import kl_loss, vae_loss_fn, vae_classifier_loss_fn
 
 import torch
 from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torch.distributions.normal import Normal
+
 
 MNIST_INPUT_SIZE = 784
 HIDDEN_LAYER_SIZE_1 = 512
@@ -179,12 +180,14 @@ class VaeAutoencoder(nn.Module):
                 # loss function to back-propagate on
                 loss = vl_fn(input, output, self.z_dist)
 
+                print(loss)
+
                 # back propagation
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 i += 1
-                if i % batch_size == 0:
+                if i % 100 == 0:
                     # append vae loss
                     vae_loss_li.append(loss.item())
 
@@ -307,7 +310,7 @@ class VaeAutoencoderClassifier(nn.Module):
                 loss.backward()
                 optimizer.step()
                 i += 1
-                if i % batch_size == 0:
+                if i % 100 == 0:
                     self.losses.append(loss.item())
 
                     # calculate accuracy
