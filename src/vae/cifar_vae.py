@@ -13,7 +13,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.dim_encoding = dim_encoding
 
-        # x: (N, 3, 32, 32+10)
+        # x: (N, 3, 32, 32)
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=4, stride=2, padding=1)
         # x: (N, 64, 16, 21)
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=4, stride=2, padding=1)
@@ -107,19 +107,15 @@ class ConditionalVae(nn.Module):
         self.decoder = Decoder(dim_encoding)
 
     def forward(self, x, y):
+        z_mu, z_sigma = self.encoder(x)
+
+        # reparametrization trick
+        self.z = z_mu + z_sigma * torch.randn_like(z_mu, device=device)
+
         # Create one-hot vector from labels
         y = y.view(x.shape[0], 1)
         onehot_y = torch.zeros((x.shape[0], 10), device=device, requires_grad=False)
         onehot_y.scatter_(1, y, 1)
-
-        # Encode
-        onehot_conv_y = onehot_y.view(x.shape[0], 1, 1, 10) * torch.ones((x.shape[0], x.shape[1], x.shape[2], 10),
-                                                                         device=device)
-        input_batch = torch.cat((x, onehot_conv_y), dim=3)
-        z_mu, z_sigma = self.encoder(input_batch)
-
-        # reparametrization trick
-        self.z = z_mu + z_sigma * torch.randn_like(z_mu, device=device)
 
         # Decode
         latent = torch.cat((self.z, onehot_y), dim=1)
