@@ -153,10 +153,10 @@ class ConditionalVae(nn.Module):
                 z_mu, z_sigma, output = cvae(input, label)
 
                 kl_loss = 0.5 * torch.sum(z_mu ** 2 + z_sigma ** 2 - torch.log(1e-8 + z_sigma ** 2) - 1., dim=1)
-                reconstruction_loss = -0.5 * torch.sum((input - output) ** 2, dim=(1, 2, 3))
+                reconstruction_loss = 0.5 * torch.sum((input - output) ** 2, dim=(1, 2, 3))
 
-                ELBO_i = reconstruction_loss - kl_loss
-                loss = -torch.mean(ELBO_i)
+                ELBO_i = reconstruction_loss + kl_loss
+                loss = torch.mean(ELBO_i)
 
                 # # loss function to back-propagate on
                 # loss = kl_loss + reconstruction_loss
@@ -194,8 +194,6 @@ class ConditionalVae(nn.Module):
         # return output
         with torch.no_grad():
             label = torch.zeros((n_samples, 10), device=device)
-            print(label)
             label[:, target_label] = 1
-            print(label)
             latent = torch.cat((input_sample, label), dim=1)
             return self.decoder(latent)

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 
 
 def plot_two_d_latents(model, input, labels):
@@ -28,10 +29,9 @@ def plot_image(images: np.ndarray):
     for i in range(5):
         plt.subplot(151 + i)
         plt.axis('off')
-        print(images[i].shape)
         squeezed_img = np.squeeze(images[i])
-        print(squeezed_img.shape)
         plt.imshow(squeezed_img)
+        plt.savefig(f'./images/{time.time()}.png')
 
 
 def plot_cifar_image(images: np.ndarray):
@@ -50,10 +50,10 @@ def plot_vae_training_result(
         vae_loss_li,
         kl_loss_li
 ):
-    if vae_model.dim_encoding == 2:
-        plot_two_d_latents(vae_model, input, labels)
-    elif vae_model.dim_encoding == 3:
-        plot_three_d_latents(vae_model, input, labels)
+    # if vae_model.dim_encoding == 2:
+    #     plot_two_d_latents(vae_model, input, labels)
+    # elif vae_model.dim_encoding == 3:
+    #     plot_three_d_latents(vae_model, input, labels)
 
     plt.plot(vae_loss_li, label='Total VAE loss')
     plt.legend()
