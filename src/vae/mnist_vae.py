@@ -103,7 +103,8 @@ class VaeAutoencoder(nn.Module):
         mu = encodings[:, :self.dim_encoding]
 
         # must do exponential, otherwise get value error that not all positive
-        sigma = torch.exp(encodings[:, self.dim_encoding:])
+        sigma = 1e-6 + F.softplus(encodings[:, self.dim_encoding:])
+
         z_dist = Normal(mu, sigma)
         self.z_dist = z_dist
         z = z_dist.rsample()
@@ -247,7 +248,7 @@ class VaeAutoencoderClassifier(nn.Module):
         mu = encodings[:, :self.dim_encoding]
 
         # must do exponential, otherwise get value error that not all positive
-        sigma = torch.exp(encodings[:, self.dim_encoding:])
+        sigma = 1e-6 + F.softplus(encodings[:, self.dim_encoding:])
 
         z_dist = Normal(mu, sigma)
         self.z_dist = z_dist
@@ -376,7 +377,7 @@ class ConditionalVae(nn.Module):
         mu = encodings[:, :self.dim_encoding]
 
         # must do exponential, otherwise get value error that not all positive
-        sigma = torch.exp(encodings[:, self.dim_encoding:])
+        sigma = 1e-6 + F.softplus(encodings[:, self.dim_encoding:])
 
         z_dist = Normal(mu, sigma)
         self.z_dist = z_dist

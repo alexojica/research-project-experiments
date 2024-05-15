@@ -121,13 +121,3 @@ def plot_vae_classifier_training_result(
     plt.plot(kl_loss_li)
     plt.show()
 
-
-def display_and_save_batch(title, batch, save=True, display=True):
-    """Display and save batch of image using plt"""
-    im = torchvision.utils.make_grid(batch, nrow=int(batch.shape[0]**0.5))
-    plt.title(title)
-    plt.imshow(np.transpose(im.cpu().numpy(), (1, 2, 0)), cmap='gray')
-    if save:
-        plt.savefig(f'./images/{time.time()}.png', transparent=True, bbox_inches='tight')
-    if display:
-        plt.show()
