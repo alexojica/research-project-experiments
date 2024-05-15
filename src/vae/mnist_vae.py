@@ -374,6 +374,11 @@ class Encoder(nn.Module):
         self.fc4 = nn.Linear(in_features=1024, out_features=2 * dim_encoding)
         # x: (N, 2*latent_dim)
 
+        for m in self.modules():
+            if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+                m.bias.data.fill_(0.)
+
     def forward(self, x):
         """
         mu: Vector of size latent_dim.
@@ -419,6 +424,11 @@ class Decoder(nn.Module):
 
         self.deconv4 = nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=4, stride=2, padding=1)
         # z: (N, 1, 28, 28)
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear) or isinstance(m, nn.ConvTranspose2d):
+                nn.init.kaiming_normal_(m.weight)
+                m.bias.data.fill_(0.)
 
     def forward(self, z):
         z = F.relu(self.bn1(self.fc1(z)))
