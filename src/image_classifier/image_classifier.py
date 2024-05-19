@@ -203,11 +203,10 @@ class CIFAR10Classifier(nn.Module):
             input: tensor
     ) -> tensor:
         labels = []
-        for img in input:
-            outputs = self.forward(img)
-            _, predicted = torch.max(outputs.data, 1)
-            labels.append(predicted)
-        return torch.stack(labels)
+        outputs = self.forward(input)
+        for output in outputs:
+            labels.append(torch.argmax(output).cpu().item())
+        return labels
 
     def test_model_syn_img_label(
             self,
