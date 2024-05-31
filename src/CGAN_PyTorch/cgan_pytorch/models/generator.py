@@ -14,10 +14,46 @@
 import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
+import torch.nn.functional as F
+
+from CGAN_PyTorch.cgan_pytorch.utils.common import normal_init
 
 model_urls = {
     "cgan": "https://github.com/Lornatang/CGAN-PyTorch/releases/download/v0.2.0/CGAN_MNIST-5fda105b1f24ad665b105873e9b8dcfc838bd892bce9373ac3035d109c61ed6e.pth"
 }
+
+
+class ConvGenerator(nn.Module):
+    def __init__(self, image_size=28, channels=1, num_classes=10):
+        super(ConvGenerator, self).__init__()
+        self.image_size = image_size
+        self.channels = channels
+
+        self.label_embedding = nn.Embedding(num_classes, num_classes)
+
+        self.init_size = image_size // 4
+        self.l1 = nn.Sequential(nn.Linear(100 + num_classes, 128 * self.init_size ** 2))
+
+        self.conv_blocks = nn.Sequential(
+            nn.BatchNorm2d(128),
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(128, 0.8),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64, 0.8),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, channels, kernel_size=3, stride=1, padding=1),
+            nn.Tanh(),
+        )
+
+    def forward(self, noise, labels):
+        gen_input = torch.cat((noise, self.label_embedding(labels)), -1)
+        out = self.l1(gen_input)
+        out = out.view(out.size(0), 128, self.init_size, self.init_size)
+        img = self.conv_blocks(out)
+        return img
 
 
 class Generator(nn.Module):
@@ -94,7 +130,33 @@ class Generator(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
 
-def _gan(arch: str, image_size: int, channels: int, pretrained: bool, progress: bool) -> Generator:
+class GeneratorCIFAR(nn.Module):
+    def __init__(self, d=128):
+        super(GeneratorCIFAR, self).__init__()
+        self.label_emb = nn.Embedding(10, 100)
+        self.deconv1 = nn.ConvTranspose2d(200, d * 4, 4, 1, 0)
+        self.deconv1_bn = nn.BatchNorm2d(d * 4)
+        self.deconv2 = nn.ConvTranspose2d(d * 4, d * 2, 4, 2, 1)
+        self.deconv2_bn = nn.BatchNorm2d(d * 2)
+        self.deconv3 = nn.ConvTranspose2d(d * 2, d, 4, 2, 1)
+        self.deconv3_bn = nn.BatchNorm2d(d)
+        self.deconv4 = nn.ConvTranspose2d(d, 3, 4, 2, 1)
+
+    def weight_init(self, mean, std):
+        for m in self._modules:
+            normal_init(self._modules[m], mean, std)
+
+    def forward(self, input, label):
+        label = self.label_emb(label).unsqueeze(2).unsqueeze(3)
+        x = torch.cat([input, label], 1)
+        x = F.leaky_relu(self.deconv1_bn(self.deconv1(x)), 0.2)
+        x = F.leaky_relu(self.deconv2_bn(self.deconv2(x)), 0.2)
+        x = F.leaky_relu(self.deconv3_bn(self.deconv3(x)), 0.2)
+        x = torch.tanh(self.deconv4(x))
+        return x
+
+
+def _gan(args) -> Generator:
     r""" Used to create GAN model.
 
     Args:
@@ -107,22 +169,19 @@ def _gan(arch: str, image_size: int, channels: int, pretrained: bool, progress: 
     Returns:
         Generator model.
     """
-    model = Generator(image_size, channels)
-
-    if pretrained:
-        state_dict = load_state_dict_from_url(model_urls[arch], progress=progress, map_location=torch.device("cpu"))
-        model.load_state_dict(state_dict)
+    if args.dataset == 'cifar':
+        model = GeneratorCIFAR()
+    else:
+        model = Generator()
 
     return model
 
 
-def cgan(pretrained: bool = False, progress: bool = True) -> Generator:
+def cgan(args) -> Generator:
     r"""GAN model architecture from the `"One weird trick..." <https://arxiv.org/abs/1406.2661>` paper.
 
     Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet.
-        progress (bool): If True, displays a progress bar of the download to stderr.
     """
-    model = _gan("cgan", 28, 1, pretrained, progress)
+    model = _gan(args)
 
     return model

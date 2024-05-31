@@ -13,6 +13,9 @@
 # ==============================================================================
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+from CGAN_PyTorch.cgan_pytorch.utils.common import normal_init
 
 
 class DiscriminatorForMNIST(nn.Module):
@@ -85,3 +88,42 @@ def discriminator_for_mnist(image_size: int = 28, channels: int = 1) -> Discrimi
     model = DiscriminatorForMNIST(image_size, channels)
 
     return model
+
+
+class DiscriminatorCIFAR(nn.Module):
+    def __init__(self, d=128):
+        super(DiscriminatorCIFAR, self).__init__()
+        self.label_emb = nn.Embedding(10, 32 * 32)
+        self.conv1 = nn.Conv2d(4, d, 4, 2, 1)
+        self.conv2 = nn.Conv2d(d, d*2, 4, 2, 1)
+        self.conv2_bn = nn.BatchNorm2d(d*2)
+        self.conv3 = nn.Conv2d(d*2, d*4, 4, 2, 1)
+        self.conv3_bn = nn.BatchNorm2d(d*4)
+        self.conv4 = nn.Conv2d(d*4, d*8, 4, 2, 1)
+        self.conv4_bn = nn.BatchNorm2d(d*8)
+        self.conv5 = nn.Conv2d(d*8, 1, 2, 1, 0)  # Change to output (batch_size, 1, 1, 1)
+
+    def weight_init(self, mean, std):
+        for m in self._modules:
+            normal_init(self._modules[m], mean, std)
+
+    def forward(self, input, label):
+        label = self.label_emb(label).view(label.size(0), 1, 32, 32)
+        x = torch.cat([input, label], 1)
+        x = F.leaky_relu(self.conv1(x), 0.2)
+        x = F.leaky_relu(self.conv2_bn(self.conv2(x)), 0.2)
+        x = F.leaky_relu(self.conv3_bn(self.conv3(x)), 0.2)
+        x = F.leaky_relu(self.conv4_bn(self.conv4(x)), 0.2)
+        x = self.conv5(x)
+        x = x.view(-1, 1)  # Flatten the output to (batch_size, 1)
+        x = torch.sigmoid(x)
+        return x
+
+
+def get_discriminator(dataset: str, noise_size=100) -> nn.Module:
+    if dataset == 'mnist':
+        return DiscriminatorForMNIST()
+    elif dataset == 'cifar':
+        return DiscriminatorCIFAR()
+    else:
+        raise ValueError("Unsupported dataset")

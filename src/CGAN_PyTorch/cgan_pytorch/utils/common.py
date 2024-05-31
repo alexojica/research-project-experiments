@@ -20,6 +20,8 @@ __all__ = [
     "create_folder", "configure", "AverageMeter", "ProgressMeter"
 ]
 
+from torch import nn
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="[ %(levelname)s ] %(message)s", level=logging.INFO)
 
@@ -39,9 +41,8 @@ def configure(args):
     Args:
         args (argparse.ArgumentParser.parse_args): Use argparse library parse command.
     """
-
-    if args == "fed":
-        return models.__dict__["cgan"]()
+    if args.model == "cgan":
+        return models.__dict__["cgan"](args)
 
     # Create model
     if args.pretrained:
@@ -80,6 +81,15 @@ class AverageMeter(object):
         return fmtstr.format(**self.__dict__)
 
 
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        m.weight.data.normal_(0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        m.weight.data.normal_(1.0, 0.02)
+        m.bias.data.fill_(0)
+
+
 # Copy from https://github.com/pytorch/examples/blob/master/imagenet/main.py
 class ProgressMeter(object):
     def __init__(self, num_batches, meters, prefix=""):
@@ -96,3 +106,9 @@ class ProgressMeter(object):
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
+
+
+def normal_init(m, mean, std):
+    if isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Conv2d):
+        m.weight.data.normal_(mean, std)
+        m.bias.data.zero_()

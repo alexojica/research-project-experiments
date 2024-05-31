@@ -7,6 +7,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torch.optim import Adam
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 
 class DatasetSplit(Dataset):
@@ -22,15 +23,19 @@ class DatasetSplit(Dataset):
 
     def __getitem__(self, item):
         image, label = self.dataset[self.idxs[item]]
-        return torch.tensor(image), torch.tensor(label)
+        return image.clone().detach(), torch.tensor(label)
 
 
 class LocalUpdate(object):
     def __init__(self, args, dataset, idxs, logger):
         self.args = args
         self.logger = logger
-        self.trainloader, self.validloader, self.testloader = self.train_val_test(
-            dataset, list(idxs))
+        self.idxs = idxs
+        if args.dataset == 'adult':
+            self.dataset = dataset
+        else:
+            self.trainloader, self.validloader, self.testloader = self.train_val_test(
+                dataset, list(idxs))
         self.device = 'cuda' if args.gpu else 'cpu'
         # Default criterion set to NLL loss function
         self.criterion = nn.NLLLoss().to(self.device)
@@ -68,17 +73,15 @@ class LocalUpdate(object):
             generator.train()
             discriminator.train()
             adversarial_loss = self.adversarial_loss
-            fixed_noise = self.fixed_noise
-            fixed_conditional = self.fixed_conditional
 
             optimizer_G = Adam(model['generator'].parameters(), lr=self.args.lr, betas=(0.5, 0.999))
             optimizer_D = Adam(model['discriminator'].parameters(), lr=self.args.lr, betas=(0.5, 0.999))
-        else:
+        elif self.args.model != 'ctgan' and self.args.model != 'tvae':
             model.train()
         epoch_loss = []
 
         # Set optimizer for the local updates
-        if self.args.model != 'cgan':
+        if self.args.model != 'cgan' and self.args.model != 'ctgan' and self.args.model != 'tvae':
             if self.args.optimizer == 'sgd':
                 optimizer = torch.optim.SGD(model.parameters(), lr=self.args.lr,
                                             momentum=0.5)
@@ -86,6 +89,9 @@ class LocalUpdate(object):
                 optimizer = torch.optim.Adam(model.parameters(), lr=self.args.lr,
                                              weight_decay=1e-4)
 
+        if self.args.model == 'ctgan' or self.args.model == 'tvae':
+            model.fit(self.dataset.iloc[list(self.idxs)])
+            return model.get_weights(), 0, model._data_processor
         for iter in range(self.args.local_ep):
             batch_loss = []
             for batch_idx, (images, labels) in enumerate(self.trainloader):
@@ -98,7 +104,7 @@ class LocalUpdate(object):
                     real_label = torch.full((btch_size, 1), 1, dtype=images.dtype).to(device)
                     fake_label = torch.full((btch_size, 1), 0, dtype=images.dtype).to(device)
 
-                    noise = torch.randn([btch_size, 100]).to(device)
+                    noise = torch.randn([btch_size, self.args.noise]).to(device)
                     conditional = torch.randint(0, 10, (btch_size,)).to(device)
 
                     ##############################################

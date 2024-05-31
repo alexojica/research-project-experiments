@@ -1,0 +1,23 @@
+{
+    "primary_key": "index",
+    "alternate_keys": [],
+    "METADATA_SPEC_VERSION": "SINGLE_TABLE_V1",
+    "columns": {
+        "index": {"sdtype": "id"},
+        "age": {"sdtype": "numerical"},
+        "workclass": {"sdtype": "categorical"},
+        "fnlwgt": {"sdtype": "numerical"},
+        "education": {"sdtype": "categorical"},
+        "marital-status": {"sdtype": "categorical"},
+        "occupation": {"sdtype": "categorical"},
+        "relationship": {"sdtype": "categorical"},
+        "race": {"sdtype": "categorical"},
+        "gender": {"sdtype": "categorical"},
+        "capital-gain": {"sdtype": "numerical"},
+        "capital-loss": {"sdtype": "numerical"},
+        "hours-per-week": {"sdtype": "numerical"},
+        "native-country": {"sdtype": "categorical"},
+        "income": {"sdtype": "categorical"}
+    },
+    "has_id": "False"
+}
