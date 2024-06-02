@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 normalize = transforms.Normalize((0.5,), (0.5,))
 
 
-def save_cgan_generated_images(global_model, device, dataset, num_classes=10, latent_dim=100):
+def plot_cgan_generated_images(global_model, device, dataset, num_classes=10, latent_dim=100):
     global_model.eval()  # Set the model to evaluation mode
     # Create a figure to display images
     fig, axs = plt.subplots(1, num_classes, figsize=(15, 3))
@@ -45,6 +45,17 @@ def save_cgan_generated_images(global_model, device, dataset, num_classes=10, la
         axs[label].set_title(f'Label: {label}')
         axs[label].axis('off')
 
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_images(images, labels, num_images=10, num_rows=2, num_cols=5):
+    fig, axs = plt.subplots(num_rows, num_cols, figsize=(15, 6))
+    for i in range(num_images):
+        ax = axs[i // num_cols, i % num_cols]
+        ax.imshow(images[i].permute(1, 2, 0).squeeze(), cmap='gray' if images[i].size(0) == 1 else None)
+        ax.set_title(f'Label: {labels[i]}')
+        ax.axis('off')
     plt.tight_layout()
     plt.show()
 
@@ -93,16 +104,18 @@ def generate_images(model, device, labels, num_images, latent_dim=100, dataset='
 
 
 def load_classifier(dataset, device='cuda', model_path=None):
-    if model_path is None:
-        model_path = os.path.join('weights', 'mnist_classifier.pth')
     if dataset == 'mnist':
+        if model_path is None:
+            model_path = os.path.join('..', 'weights', 'mnist_classifier.pth')
         model = SimpleCNN()
         model.load_state_dict(torch.load(model_path, map_location=device))
         model.to(device)
         return model
     elif dataset == 'cifar':
+        if model_path is None:
+            model_path = os.path.join('..', 'weights', 'cifar_classifier.pth')
         model = CIFARResNetClassifier()
-        model.load_model()
+        model.load_model(path=model_path)
         return model
     else:
         raise ValueError(f"Invalid dataset: {dataset}")

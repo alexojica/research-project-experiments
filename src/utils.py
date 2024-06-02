@@ -247,6 +247,59 @@ def average_weights(w, args):
         return w_avg
 
 
+def fed_avg_cgan(local_weights, dataset_size_per_client):
+    avg_dict = {}
+    sum_dataset = sum(dataset_size_per_client)
+    for i, dictionary in enumerate(local_weights):
+        for key, tensor in dictionary['generator'].items():
+            if key not in avg_dict:
+                avg_dict[key] = tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+            else:
+                avg_dict[key] += tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+    for i, dictionary in enumerate(local_weights):
+        for key, tensor in dictionary['discriminator'].items():
+            if key not in avg_dict:
+                avg_dict[key] = tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+            else:
+                avg_dict[key] += tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+    return avg_dict
+
+
+def fed_avg_tvae(local_weights, dataset_size_per_client):
+    avg_dict = {}
+    sum_dataset = sum(dataset_size_per_client)
+    for i, dictionary in enumerate(local_weights):
+        for key, tensor in dictionary['encoder'].items():
+            if key not in avg_dict:
+                avg_dict[key] = tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+            else:
+                avg_dict[key] += tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+    for i, dictionary in enumerate(local_weights):
+        for key, tensor in dictionary['decoder'].items():
+            if key not in avg_dict:
+                avg_dict[key] = tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+            else:
+                avg_dict[key] += tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+    return avg_dict
+
+
+def fed_avg(local_weights, dataset_size_per_client, args):
+    if args.model == 'cgan' or args.model == 'ctgan':
+        return fed_avg_cgan(local_weights, dataset_size_per_client)
+    elif args.model == 'tvae':
+        return fed_avg_tvae(local_weights, dataset_size_per_client)
+    else:
+        avg_dict = {}
+        sum_dataset = sum(dataset_size_per_client)
+        for i, dictionary in enumerate(local_weights):
+            for key, tensor in dictionary.items():
+                if key not in avg_dict:
+                    avg_dict[key] = tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+                else:
+                    avg_dict[key] += tensor.clone() * (dataset_size_per_client[i] / sum_dataset)
+        return avg_dict
+
+
 def exp_details(args):
     print('\nExperimental details:')
     print(f'    Model     : {args.model}')

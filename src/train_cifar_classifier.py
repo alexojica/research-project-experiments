@@ -93,8 +93,10 @@ class CIFARResNetClassifier:
     def save_model(self):
         torch.save(self.model.state_dict(), os.path.join('weights', 'cifar_classifier.pth'))
 
-    def load_model(self):
-        self.model.load_state_dict(torch.load(os.path.join('weights', 'cifar_classifier.pth'), map_location=self.device))
+    def load_model(self, path=None):
+        if path is None:
+            path = os.path.join('weights', 'cifar_classifier.pth')
+        self.model.load_state_dict(torch.load(path, map_location=self.device))
 
     def eval(self):
         self.model.eval()

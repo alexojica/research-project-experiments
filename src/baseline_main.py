@@ -10,7 +10,7 @@ import torch
 import os
 from torch.utils.data import DataLoader
 
-from gan_evaluation import save_cgan_generated_images, load_classifier, generate_images, classifier_accuracy, \
+from gan_evaluation import plot_cgan_generated_images, load_classifier, generate_images, classifier_accuracy, \
     calculate_emd, pca_images, plot_pca
 from datetime import datetime
 
@@ -24,13 +24,13 @@ from CGAN_PyTorch.cgan_pytorch.utils.common import configure, weights_init
 from CGAN_PyTorch.cgan_pytorch.models.discriminator import get_discriminator
 
 
-def save_model_with_timestamp(model, path="weights"):
+def save_model_with_timestamp(model, args, path="weights"):
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    torch.save(model.state_dict(), os.path.join(path, f"CGAN_{timestamp}.pth"))
+    torch.save(model.state_dict(),
+               os.path.join('..', path, f"CGAN_{args.dataset}_{args.epochs}_{args.noise}_{args.lr}_{timestamp}.pth"))
 
 
-if __name__ == '__main__':
-    args = args_parser()
+def main(args):
     if args.gpu:
         torch.cuda.set_device(args.gpu)
     device = 'cuda' if args.gpu else 'cpu'
@@ -59,8 +59,8 @@ if __name__ == '__main__':
             global_model = MLP(dim_in=len_in, dim_hidden=64,
                                dim_out=args.num_classes)
     elif args.model == 'cgan':
+        global_model = configure(args).to(device)
         if args.dataset == 'mnist':
-            global_model = configure({'arch': "fed_mnist", 'noise': args.noise})
             discriminator = get_discriminator('mnist', args.noise)
             discriminator.to(device)
             discriminator.train()
@@ -72,7 +72,6 @@ if __name__ == '__main__':
             optimizer_G = Adam(global_model.parameters(), lr=args.lr, betas=(0.5, 0.999))
             optimizer_D = Adam(discriminator.parameters(), lr=args.lr, betas=(0.5, 0.999))
         elif args.dataset == 'cifar':
-            global_model = configure(args).to(device)
             global_model.apply(weights_init)
             discriminator = get_discriminator('cifar', args.noise).to(device)
             discriminator.apply(weights_init)
@@ -123,7 +122,7 @@ if __name__ == '__main__':
         for epoch in tqdm(range(args.epochs), "Progress overall"):
             batch_loss = []
 
-            for batch_idx, (images, labels) in enumerate(tqdm(trainloader, f"Epoch {epoch + 1}")):
+            for batch_idx, (images, labels) in enumerate(trainloader):
                 images = images.to(device)
                 labels = labels.to(device)
                 if args.model == 'cgan':
@@ -233,8 +232,8 @@ if __name__ == '__main__':
         testloader = DataLoader(test_dataset, batch_size=32, shuffle=True)
     # testing
     if args.model == 'cgan':
-        torch.save(global_model.state_dict(), os.path.join("weights", f"GAN-last.pth"))
-        save_cgan_generated_images(global_model, device, args.dataset, num_classes=args.num_classes,
+        # torch.save(global_model.state_dict(), os.path.join("weights", f"GAN-last.pth"))
+        plot_cgan_generated_images(global_model, device, args.dataset, num_classes=args.num_classes,
                                    latent_dim=args.noise)
         real_preds = 0
         fake_preds = 0
@@ -246,7 +245,8 @@ if __name__ == '__main__':
         for batch_idx, (images, labels) in enumerate(tqdm(testloader, f"Testing: ")):
             images = images.to(device)
             labels = labels.to(device)
-            fake_images = generate_images(global_model, device, labels, num_images=images.size(0), latent_dim=args.noise,
+            fake_images = generate_images(global_model, device, labels, num_images=images.size(0),
+                                          latent_dim=args.noise,
                                           dataset=args.dataset)
             emd_real_images = torch.cat((emd_real_images, images), dim=0)
             emd_fake_images = torch.cat((emd_fake_images, fake_images), dim=0)
@@ -266,7 +266,7 @@ if __name__ == '__main__':
         print(f"Real images accuracy: {real_accuracy}, Fake images accuracy: {fake_accuracy}")
 
         # Save model with timestamp
-        save_model_with_timestamp(global_model)
+        save_model_with_timestamp(global_model, args=args)
     elif args.model != 'ctgan' and args.model != 'tvae':
         # testing
         test_acc, test_loss = test_inference(args, global_model, test_dataset)
@@ -277,3 +277,8 @@ if __name__ == '__main__':
         # sample and save the dataframe to csv
         sample = global_model.sample(len(train_dataset))
         sample.to_csv(os.path.join("synthetic_datasets", f"sample_baseline_{args.model}.csv"), index=False)
+
+
+if __name__ == '__main__':
+    args = args_parser()
+    main(args)

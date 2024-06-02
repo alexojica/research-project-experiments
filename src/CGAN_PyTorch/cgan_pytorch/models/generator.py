@@ -131,10 +131,10 @@ class Generator(nn.Module):
 
 
 class GeneratorCIFAR(nn.Module):
-    def __init__(self, d=128):
+    def __init__(self, latent_dim=100, d=128):
         super(GeneratorCIFAR, self).__init__()
-        self.label_emb = nn.Embedding(10, 100)
-        self.deconv1 = nn.ConvTranspose2d(200, d * 4, 4, 1, 0)
+        self.label_emb = nn.Embedding(10, latent_dim)
+        self.deconv1 = nn.ConvTranspose2d(latent_dim + latent_dim, d * 4, 4, 1, 0)
         self.deconv1_bn = nn.BatchNorm2d(d * 4)
         self.deconv2 = nn.ConvTranspose2d(d * 4, d * 2, 4, 2, 1)
         self.deconv2_bn = nn.BatchNorm2d(d * 2)
@@ -156,7 +156,7 @@ class GeneratorCIFAR(nn.Module):
         return x
 
 
-def _gan(args) -> Generator:
+def _gan(args):
     r""" Used to create GAN model.
 
     Args:
@@ -170,9 +170,9 @@ def _gan(args) -> Generator:
         Generator model.
     """
     if args.dataset == 'cifar':
-        model = GeneratorCIFAR()
+        model = GeneratorCIFAR(latent_dim=args.noise)
     else:
-        model = Generator()
+        model = ConvGenerator()
 
     return model
 

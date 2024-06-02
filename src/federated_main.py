@@ -17,24 +17,22 @@ from tensorboardX import SummaryWriter
 
 from options import args_parser
 from baseline_main import save_model_with_timestamp
-from gan_evaluation import save_cgan_generated_images, load_classifier, generate_images, classifier_accuracy, \
+from gan_evaluation import plot_cgan_generated_images, load_classifier, generate_images, classifier_accuracy, \
     calculate_emd
 from sdv_local.single_table.ctgan import CTGANSynthesizer, TVAESynthesizer
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import get_dataset, average_weights, exp_details, get_dataset_config, index_dataset
+from utils import get_dataset, average_weights, exp_details, get_dataset_config, index_dataset, fed_avg
 from CGAN_PyTorch.cgan_pytorch.utils.common import configure
 from CGAN_PyTorch.cgan_pytorch.models.discriminator import discriminator_for_mnist
 
 
-if __name__ == '__main__':
+def main(args):
     start_time = time.time()
 
     # define paths
     path_project = os.path.abspath('..')
     logger = SummaryWriter('../logs')
-
-    args = args_parser()
     exp_details(args)
 
     if args.gpu:
@@ -63,8 +61,7 @@ if __name__ == '__main__':
             global_model = MLP(dim_in=len_in, dim_hidden=64,
                                dim_out=args.num_classes)
     elif args.model == 'cgan':
-        arg = {'arch': 'fed_' + args.dataset, 'noise': args.noise}
-        global_model = {'generator': configure(arg), 'discriminator': discriminator_for_mnist(28, 1)}
+        global_model = {'generator': configure(args), 'discriminator': discriminator_for_mnist(28, 1)}
         global_model['generator'].to(device)
         global_model['discriminator'].to(device)
         global_model['discriminator'].train()
@@ -118,8 +115,10 @@ if __name__ == '__main__':
         elif args.model != 'ctgan' and args.model != 'tvae':
             global_model.train()
         m = max(int(args.frac * args.num_users), 1)
-        idxs_users = np.random.choice(range(args.num_users), m, replace=False)
-        # idxs_users = range(args.num_users)
+        # idxs_users = np.random.choice(range(args.num_users), m, replace=False)
+        idxs_users = range(args.num_users)
+
+        dataset_size_per_client = [len(user_groups[i]) for i in idxs_users]
 
         for idx in idxs_users:
             local_model = LocalUpdate(args=args, dataset=train_dataset,
@@ -135,6 +134,7 @@ if __name__ == '__main__':
 
         # update global weights
         global_weights = average_weights(local_weights, args)
+        # global_weights = fed_avg(local_weights, dataset_size_per_client, args)
 
         # update global weights
         if args.model == 'cgan':
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     # Test inference after completion of training
     if args.model == 'cgan':
         # global_model['generator'].eval()
-        save_cgan_generated_images(global_model['generator'], device, args.dataset, num_classes=args.num_classes,
+        plot_cgan_generated_images(global_model['generator'], device, args.dataset, num_classes=args.num_classes,
                                    latent_dim=args.noise)
         real_preds = 0
         fake_preds = 0
@@ -209,7 +209,7 @@ if __name__ == '__main__':
         print(f"Real images accuracy: {real_accuracy}, Fake images accuracy: {fake_accuracy}")
 
         # Save model with timestamp
-        save_model_with_timestamp(global_model['generator'])
+        save_model_with_timestamp(global_model['generator'], args)
     elif args.model == 'ctgan' or args.model == 'tvae':
         global_model.save(os.path.join("weights", "ctgan_fed.pth"))
         # sample and save the dataframe to csv
@@ -258,3 +258,8 @@ if __name__ == '__main__':
     # plt.savefig('../save/fed_{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}]_acc.png'.
     #             format(args.dataset, args.model, args.epochs, args.frac,
     #                    args.iid, args.local_ep, args.local_bs))
+
+
+if __name__ == '__main__':
+    args = args_parser()
+    main(args)
