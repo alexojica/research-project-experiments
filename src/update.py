@@ -104,7 +104,8 @@ class LocalUpdate(object):
                     real_label = torch.full((btch_size, 1), 1, dtype=images.dtype).to(device)
                     fake_label = torch.full((btch_size, 1), 0, dtype=images.dtype).to(device)
 
-                    noise = torch.randn([btch_size, self.args.noise]).to(device)
+                    noise = torch.randn([btch_size, self.args.noise]).to(device) if self.args.dataset == 'mnist' else \
+                        torch.randn(btch_size, self.args.noise, 1, 1, device=device)
                     conditional = torch.randint(0, 10, (btch_size,)).to(device)
 
                     ##############################################

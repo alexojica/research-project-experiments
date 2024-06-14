@@ -30,14 +30,71 @@ def save_model_with_timestamp(model, args, path="weights"):
                os.path.join('..', path, f"CGAN_{args.dataset}_{args.epochs}_{args.noise}_{args.lr}_{timestamp}.pth"))
 
 
+def testing(args, global_model, test_dataset, device, train_dataset=None, save_model=False, plot=False):
+    if args.model != 'ctgan' and args.model != 'tvae':
+        testloader = DataLoader(test_dataset, batch_size=256, shuffle=True)
+    # testing
+    if args.model == 'cgan':
+        # torch.save(global_model.state_dict(), os.path.join("weights", f"GAN-last.pth"))
+        if plot:
+            plot_cgan_generated_images(global_model, device, args.dataset, num_classes=args.num_classes,
+                                       latent_dim=args.noise)
+        real_preds = 0
+        fake_preds = 0
+        emd_real_images = torch.empty(0, ).to(device)
+        emd_fake_images = torch.empty(0, ).to(device)
+        labels_list = torch.empty(0, ).to(device)
+
+        model = load_classifier(args.dataset)
+        for batch_idx, (images, labels) in tqdm(enumerate(testloader), f"Testing: ", total=len(testloader)):
+            images = images.to(device)
+            labels = labels.to(device)
+            fake_images = generate_images(global_model, device, labels, num_images=images.size(0),
+                                          latent_dim=args.noise,
+                                          dataset=args.dataset)
+            emd_real_images = torch.cat((emd_real_images, images), dim=0)
+            emd_fake_images = torch.cat((emd_fake_images, fake_images), dim=0)
+            labels_list = torch.cat((labels_list, labels), dim=0)
+            real_preds_temp, fake_preds_temp = classifier_accuracy(model, images, fake_images, labels, args.dataset,
+                                                                   device)
+            real_preds += real_preds_temp
+            fake_preds += fake_preds_temp
+
+        real_accuracy = real_preds / len(test_dataset)
+        fake_accuracy = fake_preds / len(test_dataset)
+
+        emd = calculate_emd(emd_real_images, emd_fake_images)
+        # pca_real, pca_fake = pca_images(emd_real_images, emd_fake_images)
+        # plot_pca(pca_real, pca_fake, labels_list)
+        print(f"Earth Mover's Distance: {emd}")
+        print(f"Real images accuracy: {real_accuracy}, Fake images accuracy: {fake_accuracy}")
+
+        if save_model:
+            # Save model with timestamp
+            save_model_with_timestamp(global_model, args=args)
+        return fake_accuracy, emd
+    elif args.model != 'ctgan' and args.model != 'tvae':
+        # testing
+        test_acc, test_loss = test_inference(args, global_model, test_dataset)
+        print('Test on', len(test_dataset), 'samples')
+        print("Test Accuracy: {:.2f}%".format(100 * test_acc))
+    else:
+        global_model.save(os.path.join("weights", f"{args.model}.pth"))
+        # sample and save the dataframe to csv
+        sample = global_model.sample(len(train_dataset))
+        sample.to_csv(os.path.join("synthetic_datasets", f"sample_baseline_{args.model}.csv"), index=False)
+
+
 def main(args):
+    accuracies = []
+    emds = []
     if args.gpu:
         torch.cuda.set_device(args.gpu)
     device = 'cuda' if args.gpu else 'cpu'
 
     # load datasets
     train_dataset, test_dataset, _ = get_dataset(args)
-    batch_size = 10
+    batch_size = 64
     discriminator = None
     adversarial_loss = None
 
@@ -122,7 +179,7 @@ def main(args):
         for epoch in tqdm(range(args.epochs), "Progress overall"):
             batch_loss = []
 
-            for batch_idx, (images, labels) in enumerate(trainloader):
+            for batch_idx, (images, labels) in tqdm(enumerate(trainloader), f"Epoch {epoch + 1}: ", total=len(trainloader)):
                 images = images.to(device)
                 labels = labels.to(device)
                 if args.model == 'cgan':
@@ -188,6 +245,10 @@ def main(args):
                             100. * batch_idx / len(trainloader), loss.item()))
                     batch_loss.append(loss.item())
 
+            if (epoch + 1) % args.testevery == 0:
+                accuracy, emd = testing(args, global_model, test_dataset, device, train_dataset)
+                accuracies.append(accuracy)
+                emds.append(emd)
             if args.model != 'cgan':
                 loss_avg = sum(batch_loss) / len(batch_loss)
                 print('\nTrain loss:', loss_avg)
@@ -227,56 +288,11 @@ def main(args):
         plt.ylabel('Train loss')
         plt.savefig('../save/nn_{}_{}_{}.png'.format(args.dataset, args.model,
                                                      args.epochs))
+    acc, emd = testing(args, global_model, test_dataset, device, train_dataset, plot=True)
+    accuracies.append(acc)
+    emds.append(emd)
 
-    if args.model != 'ctgan' and args.model != 'tvae':
-        testloader = DataLoader(test_dataset, batch_size=32, shuffle=True)
-    # testing
-    if args.model == 'cgan':
-        # torch.save(global_model.state_dict(), os.path.join("weights", f"GAN-last.pth"))
-        plot_cgan_generated_images(global_model, device, args.dataset, num_classes=args.num_classes,
-                                   latent_dim=args.noise)
-        real_preds = 0
-        fake_preds = 0
-        emd_real_images = torch.empty(0, ).to(device)
-        emd_fake_images = torch.empty(0, ).to(device)
-        labels_list = torch.empty(0, ).to(device)
-
-        model = load_classifier(args.dataset)
-        for batch_idx, (images, labels) in enumerate(tqdm(testloader, f"Testing: ")):
-            images = images.to(device)
-            labels = labels.to(device)
-            fake_images = generate_images(global_model, device, labels, num_images=images.size(0),
-                                          latent_dim=args.noise,
-                                          dataset=args.dataset)
-            emd_real_images = torch.cat((emd_real_images, images), dim=0)
-            emd_fake_images = torch.cat((emd_fake_images, fake_images), dim=0)
-            labels_list = torch.cat((labels_list, labels), dim=0)
-            real_preds_temp, fake_preds_temp = classifier_accuracy(model, images, fake_images, labels, args.dataset,
-                                                                   device)
-            real_preds += real_preds_temp
-            fake_preds += fake_preds_temp
-
-        real_accuracy = real_preds / len(test_dataset)
-        fake_accuracy = fake_preds / len(test_dataset)
-
-        emd = calculate_emd(emd_real_images, emd_fake_images)
-        pca_real, pca_fake = pca_images(emd_real_images, emd_fake_images)
-        plot_pca(pca_real, pca_fake, labels_list)
-        print(f"Earth Mover's Distance: {emd}")
-        print(f"Real images accuracy: {real_accuracy}, Fake images accuracy: {fake_accuracy}")
-
-        # Save model with timestamp
-        save_model_with_timestamp(global_model, args=args)
-    elif args.model != 'ctgan' and args.model != 'tvae':
-        # testing
-        test_acc, test_loss = test_inference(args, global_model, test_dataset)
-        print('Test on', len(test_dataset), 'samples')
-        print("Test Accuracy: {:.2f}%".format(100 * test_acc))
-    else:
-        global_model.save(os.path.join("weights", f"{args.model}.pth"))
-        # sample and save the dataframe to csv
-        sample = global_model.sample(len(train_dataset))
-        sample.to_csv(os.path.join("synthetic_datasets", f"sample_baseline_{args.model}.csv"), index=False)
+    return accuracies, emds
 
 
 if __name__ == '__main__':

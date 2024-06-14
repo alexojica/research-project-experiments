@@ -91,33 +91,43 @@ def discriminator_for_mnist(image_size: int = 28, channels: int = 1) -> Discrimi
 
 
 class DiscriminatorCIFAR(nn.Module):
-    def __init__(self, d=128):
+    def __init__(self, input_shape=(3, 32, 32), condition_dim=1):
         super(DiscriminatorCIFAR, self).__init__()
-        self.label_emb = nn.Embedding(10, 32 * 32)
-        self.conv1 = nn.Conv2d(4, d, 4, 2, 1)
-        self.conv2 = nn.Conv2d(d, d*2, 4, 2, 1)
-        self.conv2_bn = nn.BatchNorm2d(d*2)
-        self.conv3 = nn.Conv2d(d*2, d*4, 4, 2, 1)
-        self.conv3_bn = nn.BatchNorm2d(d*4)
-        self.conv4 = nn.Conv2d(d*4, d*8, 4, 2, 1)
-        self.conv4_bn = nn.BatchNorm2d(d*8)
-        self.conv5 = nn.Conv2d(d*8, 1, 2, 1, 0)  # Change to output (batch_size, 1, 1, 1)
 
-    def weight_init(self, mean, std):
-        for m in self._modules:
-            normal_init(self._modules[m], mean, std)
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(input_shape[0], 128, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
 
-    def forward(self, input, label):
-        label = self.label_emb(label).view(label.size(0), 1, 32, 32)
-        x = torch.cat([input, label], 1)
-        x = F.leaky_relu(self.conv1(x), 0.2)
-        x = F.leaky_relu(self.conv2_bn(self.conv2(x)), 0.2)
-        x = F.leaky_relu(self.conv3_bn(self.conv3(x)), 0.2)
-        x = F.leaky_relu(self.conv4_bn(self.conv4(x)), 0.2)
-        x = self.conv5(x)
-        x = x.view(-1, 1)  # Flatten the output to (batch_size, 1)
-        x = torch.sigmoid(x)
-        return x
+            nn.Conv2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1)
+        )
+
+        self.flatten = nn.Flatten()
+
+        self.fc = nn.Sequential(
+            nn.Linear(128 * (input_shape[1] // 8) * (input_shape[2] // 8) + condition_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, input, condition):
+        x = self.conv_layers(input)
+        x = self.flatten(x)
+        condition = condition.view(condition.size(0), -1)  # Ensure condition is flattened
+        x = torch.cat((x, condition), dim=1)
+        out = self.fc(x)
+        return out
 
 
 def get_discriminator(dataset: str, noise_size=100) -> nn.Module:

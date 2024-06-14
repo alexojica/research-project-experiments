@@ -131,29 +131,52 @@ class Generator(nn.Module):
 
 
 class GeneratorCIFAR(nn.Module):
-    def __init__(self, latent_dim=100, d=128):
+    def __init__(self, noise_dim=100, condition_dim=1):
         super(GeneratorCIFAR, self).__init__()
-        self.label_emb = nn.Embedding(10, latent_dim)
-        self.deconv1 = nn.ConvTranspose2d(latent_dim + latent_dim, d * 4, 4, 1, 0)
-        self.deconv1_bn = nn.BatchNorm2d(d * 4)
-        self.deconv2 = nn.ConvTranspose2d(d * 4, d * 2, 4, 2, 1)
-        self.deconv2_bn = nn.BatchNorm2d(d * 2)
-        self.deconv3 = nn.ConvTranspose2d(d * 2, d, 4, 2, 1)
-        self.deconv3_bn = nn.BatchNorm2d(d)
-        self.deconv4 = nn.ConvTranspose2d(d, 3, 4, 2, 1)
 
-    def weight_init(self, mean, std):
-        for m in self._modules:
-            normal_init(self._modules[m], mean, std)
+        self.fc = nn.Sequential(
+            nn.Linear(noise_dim + condition_dim, 128 * 8 * 8),
+            nn.BatchNorm1d(128 * 8 * 8, momentum=0.9),
+            nn.LeakyReLU(0.1),
+        )
 
-    def forward(self, input, label):
-        label = self.label_emb(label).unsqueeze(2).unsqueeze(3)
-        x = torch.cat([input, label], 1)
-        x = F.leaky_relu(self.deconv1_bn(self.deconv1(x)), 0.2)
-        x = F.leaky_relu(self.deconv2_bn(self.deconv2(x)), 0.2)
-        x = F.leaky_relu(self.deconv3_bn(self.deconv3(x)), 0.2)
-        x = torch.tanh(self.deconv4(x))
-        return x
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(128, 128, kernel_size=4, stride=1, padding=2),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(128, 128, kernel_size=5, stride=1, padding=1),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.ConvTranspose2d(128, 128, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(128, 128, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(128, 128, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(128, momentum=0.9),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(128, 3, kernel_size=5, stride=1, padding=2),
+            nn.Tanh()
+        )
+
+    def forward(self, noise, condition):
+        condition = condition.view(condition.size(0), -1)
+        noise = noise.view(noise.size(0), -1)
+        x = torch.cat((noise, condition), dim=1)
+        x = self.fc(x)
+        x = x.view(x.size(0), 128, 8, 8)
+        out = self.conv_layers(x)
+        return out
 
 
 def _gan(args):
@@ -170,9 +193,9 @@ def _gan(args):
         Generator model.
     """
     if args.dataset == 'cifar':
-        model = GeneratorCIFAR(latent_dim=args.noise)
+        model = GeneratorCIFAR()
     else:
-        model = ConvGenerator()
+        model = Generator()
 
     return model
 
