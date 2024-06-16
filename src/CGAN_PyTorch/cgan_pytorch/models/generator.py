@@ -131,11 +131,11 @@ class Generator(nn.Module):
 
 
 class GeneratorCIFAR(nn.Module):
-    def __init__(self, noise_dim=100, condition_dim=1):
+    def __init__(self, noise_dim=100, num_classes=10):
         super(GeneratorCIFAR, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(noise_dim + condition_dim, 128 * 8 * 8),
+            nn.Linear(noise_dim + num_classes, 128 * 8 * 8),
             nn.BatchNorm1d(128 * 8 * 8, momentum=0.9),
             nn.LeakyReLU(0.1),
         )

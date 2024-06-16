@@ -9,6 +9,9 @@ from torch.optim import Adam
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from CGAN_PyTorch.cgan_pytorch.utils.common import compute_gradient_penalty, discriminator_loss, generator_loss
+from utils import one_hot_encode
+
 
 class DatasetSplit(Dataset):
     """An abstract Dataset class wrapped around Pytorch Dataset class.
@@ -24,6 +27,9 @@ class DatasetSplit(Dataset):
     def __getitem__(self, item):
         image, label = self.dataset[self.idxs[item]]
         return image.clone().detach(), torch.tensor(label)
+
+
+lambda_gp = 10
 
 
 class LocalUpdate(object):
@@ -52,16 +58,16 @@ class LocalUpdate(object):
         and user indexes.
         """
         # split indexes for train, validation, and test (80, 10, 10)
-        idxs_train = idxs[:int(0.8*len(idxs))]
-        idxs_val = idxs[int(0.8*len(idxs)):int(0.9*len(idxs))]
-        idxs_test = idxs[int(0.9*len(idxs)):]
+        idxs_train = idxs[:int(0.8 * len(idxs))]
+        idxs_val = idxs[int(0.8 * len(idxs)):int(0.9 * len(idxs))]
+        idxs_test = idxs[int(0.9 * len(idxs)):]
 
         trainloader = DataLoader(DatasetSplit(dataset, idxs_train),
                                  batch_size=self.args.local_bs, shuffle=True)
         validloader = DataLoader(DatasetSplit(dataset, idxs_val),
-                                 batch_size=int(len(idxs_val)/10), shuffle=False)
+                                 batch_size=int(len(idxs_val) / 10), shuffle=False)
         testloader = DataLoader(DatasetSplit(dataset, idxs_test),
-                                batch_size=int(len(idxs_test)/10), shuffle=False)
+                                batch_size=int(len(idxs_test) / 10), shuffle=False)
         return trainloader, validloader, testloader
 
     def update_weights(self, model, global_round):
@@ -101,12 +107,15 @@ class LocalUpdate(object):
                     discriminator.train()
                     generator.train()
                     btch_size = images.size(0)
-                    real_label = torch.full((btch_size, 1), 1, dtype=images.dtype).to(device)
-                    fake_label = torch.full((btch_size, 1), 0, dtype=images.dtype).to(device)
+                    real_label = torch.full((btch_size, 1), 0.9, dtype=images.dtype).to(device)
+                    fake_label = torch.full((btch_size, 1), 0.1, dtype=images.dtype).to(device)
 
                     noise = torch.randn([btch_size, self.args.noise]).to(device) if self.args.dataset == 'mnist' else \
                         torch.randn(btch_size, self.args.noise, 1, 1, device=device)
                     conditional = torch.randint(0, 10, (btch_size,)).to(device)
+
+                    one_hot_labels = one_hot_encode(labels, num_classes=10)
+                    conditional = one_hot_encode(conditional, num_classes=10)
 
                     ##############################################
                     # (1) Update D network: max E(x)[log(D(x))] + E(z)[log(1- D(z))]
@@ -115,7 +124,7 @@ class LocalUpdate(object):
                     discriminator.zero_grad()
 
                     # Train with real.
-                    real_output = discriminator(images, labels)
+                    real_output = discriminator(images, one_hot_labels)
                     d_loss_real = adversarial_loss(real_output, real_label)
                     d_loss_real.backward()
                     d_x = real_output.mean()
@@ -154,13 +163,14 @@ class LocalUpdate(object):
                         print('| Global Round : {} | Local Epoch : {} | [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                             global_round, iter, batch_idx * len(images),
                             len(self.trainloader.dataset),
-                            100. * batch_idx / len(self.trainloader), loss.item()))
+                                                100. * batch_idx / len(self.trainloader), loss.item()))
                     self.logger.add_scalar('loss', loss.item())
                     batch_loss.append(loss.item())
-            epoch_loss.append(sum(batch_loss)/len(batch_loss))
+            epoch_loss.append(sum(batch_loss) / len(batch_loss))
 
         if self.args.model == 'cgan':
-            return {'generator': generator.state_dict(), 'discriminator': discriminator.state_dict()}, sum(epoch_loss) / len(epoch_loss)
+            return {'generator': generator.state_dict(), 'discriminator': discriminator.state_dict()}, sum(
+                epoch_loss) / len(epoch_loss)
         else:
             return model.state_dict(), sum(epoch_loss) / len(epoch_loss)
 
@@ -207,7 +217,7 @@ class LocalUpdate(object):
 
         # plt.tight_layout()
         # plt.show()
-        accuracy = correct/total
+        accuracy = correct / total
         return accuracy, loss
 
 
@@ -237,5 +247,5 @@ def test_inference(args, model, test_dataset):
         correct += torch.sum(torch.eq(pred_labels, labels)).item()
         total += len(labels)
 
-    accuracy = correct/total
+    accuracy = correct / total
     return accuracy, loss

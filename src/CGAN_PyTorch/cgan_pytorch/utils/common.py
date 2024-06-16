@@ -20,6 +20,8 @@ __all__ = [
     "create_folder", "configure", "AverageMeter", "ProgressMeter"
 ]
 
+import torch
+
 from torch import nn
 
 logger = logging.getLogger(__name__)
@@ -112,3 +114,34 @@ def normal_init(m, mean, std):
     if isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Conv2d):
         m.weight.data.normal_(mean, std)
         m.bias.data.zero_()
+
+
+def discriminator_loss(real_output, fake_output):
+    return torch.mean(fake_output) - torch.mean(real_output)
+
+
+def generator_loss(fake_output):
+    return -torch.mean(fake_output)
+
+
+def weights_clipping(discriminator, clip_value=0.01):
+    for p in discriminator.parameters():
+        p.data.clamp_(-clip_value, clip_value)
+
+
+def compute_gradient_penalty(D, real_samples, fake_samples, labels):
+    alpha = torch.randn(real_samples.size(0), 1, 1, 1).to(real_samples.device)
+    interpolates = (alpha * real_samples + ((1 - alpha) * fake_samples)).requires_grad_(True)
+    d_interpolates = D(interpolates, labels)
+    fake = torch.ones(d_interpolates.size()).to(real_samples.device)
+    gradients = torch.autograd.grad(
+        outputs=d_interpolates,
+        inputs=interpolates,
+        grad_outputs=fake,
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True
+    )[0]
+    gradients = gradients.view(gradients.size(0), -1)
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    return gradient_penalty

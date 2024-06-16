@@ -91,7 +91,7 @@ def discriminator_for_mnist(image_size: int = 28, channels: int = 1) -> Discrimi
 
 
 class DiscriminatorCIFAR(nn.Module):
-    def __init__(self, input_shape=(3, 32, 32), condition_dim=1):
+    def __init__(self, input_shape=(3, 32, 32), num_classes=10):
         super(DiscriminatorCIFAR, self).__init__()
 
         self.conv_layers = nn.Sequential(
@@ -115,7 +115,7 @@ class DiscriminatorCIFAR(nn.Module):
         self.flatten = nn.Flatten()
 
         self.fc = nn.Sequential(
-            nn.Linear(128 * (input_shape[1] // 8) * (input_shape[2] // 8) + condition_dim, 512),
+            nn.Linear(128 * (input_shape[1] // 8) * (input_shape[2] // 8) + num_classes, 512),
             nn.ReLU(),
             nn.Linear(512, 1),
             nn.Sigmoid()

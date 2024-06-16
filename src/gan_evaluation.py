@@ -7,6 +7,7 @@ from scipy.stats import wasserstein_distance
 from torch import Tensor
 from torchvision import transforms
 
+from utils import one_hot_encode
 from train_cifar_classifier import CIFARResNetClassifier
 from train_classifier_mnist import SimpleCNN
 import torch.nn.functional as F
@@ -29,9 +30,10 @@ def plot_cgan_generated_images(global_model, device, dataset, num_classes=10, la
         z = torch.randn([1, latent_dim]).to(device) if dataset == 'mnist' else \
             torch.randn(1, latent_dim, 1, 1, device=device)
         labels = torch.LongTensor([label]).to(device)  # Create a tensor for the label
+        one_hot_labels = one_hot_encode(labels, num_classes=num_classes)  # One-hot encode the label
 
         with torch.no_grad():  # No need to track gradients
-            generated_image = global_model(z, labels).detach().cpu()
+            generated_image = global_model(z, one_hot_labels).detach().cpu()
             # Manually scale the image data to [0, 1]
             generated_image = (generated_image - generated_image.min()) / (
                     generated_image.max() - generated_image.min())
@@ -156,7 +158,7 @@ def load_classifier(dataset, device='cuda', model_path=None):
         return model
     elif dataset == 'cifar':
         if model_path is None:
-            model_path = os.path.join('weights', 'cifar_classifier.pth')
+            model_path = os.path.join('..', 'weights', 'cifar_classifier.pth')
         model = CIFARResNetClassifier()
         model.load_model(path=model_path)
         return model

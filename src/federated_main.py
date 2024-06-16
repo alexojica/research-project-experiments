@@ -19,33 +19,38 @@ from options import args_parser
 from baseline_main import save_model_with_timestamp
 from gan_evaluation import plot_cgan_generated_images, load_classifier, generate_images, classifier_accuracy, \
     calculate_emd
-from sdv_local.single_table.ctgan import CTGANSynthesizer, TVAESynthesizer
+# from sdv_local.single_table.ctgan import CTGANSynthesizer, TVAESynthesizer
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import get_dataset, average_weights, exp_details, get_dataset_config, index_dataset, fed_avg
+from utils import get_dataset, average_weights, exp_details, get_dataset_config, index_dataset, fed_avg, one_hot_encode
 from CGAN_PyTorch.cgan_pytorch.utils.common import configure, weights_init
 from CGAN_PyTorch.cgan_pytorch.models.discriminator import discriminator_for_mnist, get_discriminator
 
 
-def testing(global_model, args, train_dataset, test_dataset, device, train_accuracy, train_loss, save=False):
+def testing(args, global_model, test_dataset, device, train_dataset=None, save_model=False, plot=False):
     if args.model != 'ctgan' and args.model != 'tvae':
-        testloader = DataLoader(test_dataset, batch_size=650, shuffle=True)
-    # Test inference after completion of training
+        testloader = DataLoader(test_dataset, batch_size=256, shuffle=True)
+
+    # Testing
     if args.model == 'cgan':
-        # global_model['generator'].eval()
-        plot_cgan_generated_images(global_model['generator'], device, args.dataset, num_classes=args.num_classes,
-                                   latent_dim=args.noise)
+        # torch.save(global_model.state_dict(), os.path.join("weights", f"GAN-last.pth"))
+        if plot:
+            plot_cgan_generated_images(global_model, device, args.dataset, num_classes=args.num_classes,
+                                       latent_dim=args.noise)
         real_preds = 0
         fake_preds = 0
-        emd_real_images = torch.empty(0, ).to(device)
-        emd_fake_images = torch.empty(0, ).to(device)
-        labels_list = torch.empty(0, ).to(device)
+        emd_real_images = torch.empty(0, 3, 32, 32).to(device)
+        emd_fake_images = torch.empty(0, 3, 32, 32).to(device)
+        labels_list = torch.empty(0, dtype=torch.long).to(device)
 
         model = load_classifier(args.dataset)
-        for batch_idx, (images, labels) in enumerate(tqdm(testloader, f"Testing: ")):
+        for batch_idx, (images, labels) in enumerate(testloader):
             images = images.to(device)
             labels = labels.to(device)
-            fake_images = generate_images(global_model['generator'], device, labels, num_images=images.size(0), latent_dim=args.noise,
+            one_hot_labels = one_hot_encode(labels, num_classes=args.num_classes)
+
+            fake_images = generate_images(global_model, device, one_hot_labels, num_images=images.size(0),
+                                          latent_dim=args.noise,
                                           dataset=args.dataset)
             emd_real_images = torch.cat((emd_real_images, images), dim=0)
             emd_fake_images = torch.cat((emd_fake_images, fake_images), dim=0)
@@ -59,13 +64,14 @@ def testing(global_model, args, train_dataset, test_dataset, device, train_accur
         fake_accuracy = fake_preds / len(test_dataset)
 
         emd = calculate_emd(emd_real_images, emd_fake_images)
+        # pca_real, pca_fake = pca_images(emd_real_images, emd_fake_images)
+        # plot_pca(pca_real, pca_fake, labels_list)
         print(f"Earth Mover's Distance: {emd}")
         print(f"Real images accuracy: {real_accuracy}, Fake images accuracy: {fake_accuracy}")
 
-        if save:
+        if save_model:
             # Save model with timestamp
-            save_model_with_timestamp(global_model['generator'], args)
-
+            save_model_with_timestamp(global_model, args=args)
         return fake_accuracy, emd
     elif args.model == 'ctgan' or args.model == 'tvae':
         global_model.save(os.path.join("weights", "ctgan_fed.pth"))
@@ -238,14 +244,15 @@ def main(args):
 
             # print global training loss after every 'i' rounds
             if (epoch+1) % args.testevery == 0:
-                acc, emd = testing(global_model, args, train_dataset, test_dataset, device, train_accuracy, train_loss, save=False)
+                plot = True if (epoch + 1) % 20 == 0 or (epoch + 1) == 5 else False
+                acc, emd = testing(args, global_model['generator'], test_dataset, device, train_dataset, plot=plot)
                 acc_list.append(acc)
                 emds.append(emd)
                 print(f' \nAvg Training Stats after {epoch+1} global rounds:')
                 print(f'Training Loss : {np.mean(np.array(train_loss))}')
                 print('Train Accuracy: {:.2f}% \n'.format(100*train_accuracy[-1]))
 
-    testing(global_model, args, train_dataset, test_dataset, device, train_accuracy, train_loss, save=True)
+    testing(args, global_model['generator'], test_dataset, device, train_dataset, plot=True)
 
     print('\n Total Run Time: {0:0.4f}'.format(time.time()-start_time))
     return acc_list, emds

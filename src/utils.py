@@ -129,6 +129,11 @@ def get_dataset_custom_training(dataset):
     return train_dataset, test_dataset
 
 
+def one_hot_encode(labels, num_classes=10):
+    device = labels.device
+    return torch.eye(num_classes, device=device)[labels]
+
+
 def get_dataset(args):
     """ Returns train and test datasets and a user group which is a dict where
     the keys are the user index and the values are the corresponding data for
@@ -139,8 +144,8 @@ def get_dataset(args):
         data_dir = '../data/cifar/'
         apply_transform = transforms.Compose(
             [transforms.ToTensor(),
-             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                  std=[0.229, 0.224, 0.225])])
+             transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                  std=[0.5, 0.5, 0.5])])
 
         train_dataset = datasets.CIFAR10(data_dir, train=True, download=True,
                                          transform=apply_transform)
