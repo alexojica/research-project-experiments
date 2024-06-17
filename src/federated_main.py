@@ -19,7 +19,7 @@ from options import args_parser
 from baseline_main import save_model_with_timestamp
 from gan_evaluation import plot_cgan_generated_images, load_classifier, generate_images, classifier_accuracy, \
     calculate_emd
-# from sdv_local.single_table.ctgan import CTGANSynthesizer, TVAESynthesizer
+from sdv_local.single_table.ctgan import CTGANSynthesizer, TVAESynthesizer
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
 from utils import get_dataset, average_weights, exp_details, get_dataset_config, index_dataset, fed_avg, one_hot_encode
@@ -79,7 +79,9 @@ def testing(args, global_model, test_dataset, device, train_dataset=None, save_m
         global_model._model._fitted = True
         global_model._fitted = True
         sample = global_model.sample(len(train_dataset))
-        sample.to_csv(os.path.join("synthetic_datasets", f"sample_fed_{args.model}.csv"), index=False)
+        iid = 'iid' if args.iid else 'non_iid'
+        sample.to_csv(os.path.join("synthetic_datasets", f"sample_fed_{args.model}_{args.dataset}_{iid}.csv"), index=False)
+        return 0, 0
     else:
         test_acc, test_loss = test_inference(args, global_model['generator'], test_dataset)
 
@@ -146,10 +148,16 @@ def main(args):
             stm = SingleTableMetadata()
             has_id_column = config.pop("has_id")
             metadata = stm.load_from_dict(config)
-            if args.model == 'ctgan':
-                global_model = CTGANSynthesizer(metadata, train_dataset, cuda=True, epochs=30)
-            else:
-                global_model = TVAESynthesizer(metadata, train_dataset, cuda=True, epochs=30)
+        elif args.dataset == 'abalone':
+            config = get_dataset_config('abalone_config.json')
+            train_dataset = index_dataset(train_dataset, config)
+            stm = SingleTableMetadata()
+            has_id_column = config.pop("has_id")
+            metadata = stm.load_from_dict(config)
+        if args.model == 'ctgan':
+            global_model = CTGANSynthesizer(metadata, train_dataset, cuda=True, epochs=30)
+        else:
+            global_model = TVAESynthesizer(metadata, train_dataset, cuda=True, epochs=30)
     else:
         exit('Error: unrecognized model')
 
@@ -252,7 +260,7 @@ def main(args):
                 print(f'Training Loss : {np.mean(np.array(train_loss))}')
                 print('Train Accuracy: {:.2f}% \n'.format(100*train_accuracy[-1]))
 
-    testing(args, global_model['generator'], test_dataset, device, train_dataset, plot=True)
+    testing(args, global_model, test_dataset, device, train_dataset, plot=True)
 
     print('\n Total Run Time: {0:0.4f}'.format(time.time()-start_time))
     return acc_list, emds
@@ -284,5 +292,20 @@ def main(args):
 
 
 if __name__ == '__main__':
+    # tvae iid
     args = args_parser()
     main(args)
+
+    # tvae non-iid
+    args.iid = 0
+    main(args)
+
+    # ctgan iid
+    args.model = 'ctgan'
+    args.iid = 1
+    main(args)
+
+    # ctgan non-iid
+    args.iid = 0
+    main(args)
+

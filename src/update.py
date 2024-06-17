@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.optim import Adam
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import torch.nn.functional as F
 
 from CGAN_PyTorch.cgan_pytorch.utils.common import compute_gradient_penalty, discriminator_loss, generator_loss
 from utils import one_hot_encode
@@ -37,7 +38,7 @@ class LocalUpdate(object):
         self.args = args
         self.logger = logger
         self.idxs = idxs
-        if args.dataset == 'adult':
+        if args.dataset in ['adult', 'abalone']:
             self.dataset = dataset
         else:
             self.trainloader, self.validloader, self.testloader = self.train_val_test(
@@ -113,9 +114,7 @@ class LocalUpdate(object):
                     noise = torch.randn([btch_size, self.args.noise]).to(device) if self.args.dataset == 'mnist' else \
                         torch.randn(btch_size, self.args.noise, 1, 1, device=device)
                     conditional = torch.randint(0, 10, (btch_size,)).to(device)
-
-                    one_hot_labels = one_hot_encode(labels, num_classes=10)
-                    conditional = one_hot_encode(conditional, num_classes=10)
+                    one_hot_conditional = one_hot_encode(conditional, num_classes=10)
 
                     ##############################################
                     # (1) Update D network: max E(x)[log(D(x))] + E(z)[log(1- D(z))]
@@ -124,20 +123,22 @@ class LocalUpdate(object):
                     discriminator.zero_grad()
 
                     # Train with real.
-                    real_output = discriminator(images, one_hot_labels)
-                    d_loss_real = adversarial_loss(real_output, real_label)
-                    d_loss_real.backward()
-                    d_x = real_output.mean()
+                    real_validity, real_aux = discriminator(images)
+                    d_loss_real = adversarial_loss(real_validity, real_label)
+                    aux_loss_real = F.cross_entropy(real_aux, labels)
+                    d_loss_real_total = d_loss_real + aux_loss_real
+                    d_loss_real_total.backward()
 
                     # Train with fake.
-                    fake = generator(noise, conditional)
-                    fake_output = discriminator(fake.detach(), conditional)
-                    d_loss_fake = adversarial_loss(fake_output, fake_label)
-                    d_loss_fake.backward()
-                    d_g_z1 = fake_output.mean()
+                    fake_images = generator(noise, one_hot_conditional)
+                    fake_validity, fake_aux = discriminator(fake_images.detach())
+                    d_loss_fake = adversarial_loss(fake_validity, fake_label)
+                    aux_loss_fake = F.cross_entropy(fake_aux, conditional)
+                    d_loss_fake_total = d_loss_fake + aux_loss_fake
+                    d_loss_fake_total.backward()
 
                     # Count all discriminator losses.
-                    d_loss = d_loss_real + d_loss_fake
+                    d_loss = d_loss_real_total + d_loss_fake_total
                     optimizer_D.step()
 
                     ##############################################
@@ -146,10 +147,11 @@ class LocalUpdate(object):
                     # Set generator gradients to zero.
                     generator.zero_grad()
 
-                    fake_output = discriminator(fake, conditional)
-                    g_loss = adversarial_loss(fake_output, real_label)
-                    g_loss.backward()
-                    d_g_z2 = fake_output.mean()
+                    fake_validity, fake_aux = discriminator(fake_images)
+                    g_loss = adversarial_loss(fake_validity, real_label)
+                    aux_loss = F.cross_entropy(fake_aux, conditional)
+                    g_loss_total = g_loss + aux_loss
+                    g_loss_total.backward()
                     optimizer_G.step()
                     batch_loss.append((g_loss.item() + d_loss.item()) / 2)
                 else:

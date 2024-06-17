@@ -22,6 +22,7 @@ from update import test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
 from CGAN_PyTorch.cgan_pytorch.utils.common import configure, weights_init, discriminator_loss, weights_clipping, \
     generator_loss, compute_gradient_penalty
+import torch.nn.functional as F
 from CGAN_PyTorch.cgan_pytorch.models.discriminator import get_discriminator
 
 
@@ -83,10 +84,11 @@ def testing(args, global_model, test_dataset, device, train_dataset=None, save_m
         print('Test on', len(test_dataset), 'samples')
         print("Test Accuracy: {:.2f}%".format(100 * test_acc))
     else:
-        global_model.save(os.path.join("weights", f"{args.model}.pth"))
+        # global_model.save(os.path.join("weights", f"{args.model}.pth"))
         # sample and save the dataframe to csv
         sample = global_model.sample(len(train_dataset))
-        sample.to_csv(os.path.join("synthetic_datasets", f"sample_baseline_{args.model}.csv"), index=False)
+        sample.to_csv(os.path.join("synthetic_datasets", f"sample_baseline_{args.model}_{args.dataset}.csv"), index=False)
+        return 0, 0
 
 
 def main(args):
@@ -156,6 +158,16 @@ def main(args):
                 global_model = TVAESynthesizer(metadata, train_dataset, cuda=True, epochs=300)
             else:
                 global_model = CTGANSynthesizer(metadata, train_dataset, cuda=True, epochs=300)
+        elif args.dataset == 'abalone':
+            config = get_dataset_config('abalone_config.json')
+            train_dataset = index_dataset(train_dataset, config)
+            stm = SingleTableMetadata()
+            has_id_column = config.pop("has_id")
+            metadata = stm.load_from_dict(config)
+            if args.model == 'tvae':
+                global_model = TVAESynthesizer(metadata, train_dataset, cuda=True, epochs=300)
+            else:
+                global_model = CTGANSynthesizer(metadata, train_dataset, cuda=True, epochs=300)
     else:
         exit('Error: unrecognized model')
 
@@ -186,6 +198,8 @@ def main(args):
             for batch_idx, (images, labels) in enumerate(trainloader):
                 images = images.to(device)
                 labels = labels.to(device)
+                one_hot_labels = one_hot_encode(labels, num_classes=10)
+
                 if args.model == 'cgan':
                     discriminator.train()
                     global_model.train()
@@ -196,9 +210,7 @@ def main(args):
                     noise = torch.randn([btch_size, args.noise]).to(device) if args.dataset == 'mnist' else \
                         torch.randn(btch_size, args.noise, 1, 1, device=device)
                     conditional = torch.randint(0, 10, (btch_size,)).to(device)
-
-                    one_hot_labels = one_hot_encode(labels, num_classes=10)
-                    conditional = one_hot_encode(conditional, num_classes=10)
+                    one_hot_conditional = one_hot_encode(conditional, num_classes=10)
 
                     ##############################################
                     # (1) Update D network: max E(x)[log(D(x))] + E(z)[log(1- D(z))]
@@ -207,20 +219,22 @@ def main(args):
                     discriminator.zero_grad()
 
                     # Train with real.
-                    real_output = discriminator(images, one_hot_labels)
-                    d_loss_real = adversarial_loss(real_output, real_label)
-                    d_loss_real.backward()
-                    d_x = real_output.mean()
+                    real_validity, real_aux = discriminator(images)
+                    d_loss_real = adversarial_loss(real_validity, real_label)
+                    aux_loss_real = F.cross_entropy(real_aux, labels)
+                    d_loss_real_total = d_loss_real + aux_loss_real
+                    d_loss_real_total.backward()
 
                     # Train with fake.
-                    fake = global_model(noise, conditional)
-                    fake_output = discriminator(fake.detach(), conditional)
-                    d_loss_fake = adversarial_loss(fake_output, fake_label)
-                    d_loss_fake.backward()
-                    d_g_z1 = fake_output.mean()
+                    fake_images = global_model(noise, one_hot_conditional)
+                    fake_validity, fake_aux = discriminator(fake_images.detach())
+                    d_loss_fake = adversarial_loss(fake_validity, fake_label)
+                    aux_loss_fake = F.cross_entropy(fake_aux, conditional)
+                    d_loss_fake_total = d_loss_fake + aux_loss_fake
+                    d_loss_fake_total.backward()
 
                     # Count all discriminator losses.
-                    d_loss = d_loss_real + d_loss_fake
+                    d_loss = d_loss_real_total + d_loss_fake_total
                     optimizer_D.step()
 
                     ##############################################
@@ -229,10 +243,11 @@ def main(args):
                     # Set generator gradients to zero.
                     global_model.zero_grad()
 
-                    fake_output = discriminator(fake, conditional)
-                    g_loss = adversarial_loss(fake_output, real_label)
-                    g_loss.backward()
-                    d_g_z2 = fake_output.mean()
+                    fake_validity, fake_aux = discriminator(fake_images)
+                    g_loss = adversarial_loss(fake_validity, real_label)
+                    aux_loss = F.cross_entropy(fake_aux, conditional)
+                    g_loss_total = g_loss + aux_loss
+                    g_loss_total.backward()
                     optimizer_G.step()
 
                     # if batch_idx % 100 == 0:

@@ -114,20 +114,26 @@ class DiscriminatorCIFAR(nn.Module):
 
         self.flatten = nn.Flatten()
 
-        self.fc = nn.Sequential(
-            nn.Linear(128 * (input_shape[1] // 8) * (input_shape[2] // 8) + num_classes, 512),
+        self.adv_layer = nn.Sequential(
+            nn.Linear(128 * (input_shape[1] // 8) * (input_shape[2] // 8), 512),
             nn.ReLU(),
             nn.Linear(512, 1),
             nn.Sigmoid()
         )
 
-    def forward(self, input, condition):
+        self.aux_layer = nn.Sequential(
+            nn.Linear(128 * (input_shape[1] // 8) * (input_shape[2] // 8), 512),
+            nn.ReLU(),
+            nn.Linear(512, num_classes),
+            nn.Softmax(dim=1)
+        )
+
+    def forward(self, input):
         x = self.conv_layers(input)
         x = self.flatten(x)
-        condition = condition.view(condition.size(0), -1)  # Ensure condition is flattened
-        x = torch.cat((x, condition), dim=1)
-        out = self.fc(x)
-        return out
+        validity = self.adv_layer(x)
+        label = self.aux_layer(x)
+        return validity, label
 
 
 def get_discriminator(dataset: str, noise_size=100) -> nn.Module:

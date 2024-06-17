@@ -213,7 +213,64 @@ def get_dataset(args):
             else:
                 # Chose euqal splits for every user
                 user_groups = adult_noniid(train_dataset, args.num_users)
+    elif args.dataset == 'abalone':
+        train_dataset = get_input_dataset('abalone.csv')
+        test_dataset = None
+        if args.iid == 1:
+            # Sample IID user data from Mnist
+            user_groups = abalone_iid(train_dataset, args.num_users)
+        # elif args.iid == 2:
+        #     user_groups = split_dirichlet(train_dataset, args.num_users, is_cfar=False, beta=args.dirichlet)
+        else:
+            # Sample Non-IID user data from Mnist
+            if args.unequal:
+                # Chose uneuqal splits for every user
+                # user_groups = abalone_noniid_unequal(train_dataset, args.num_users)
+                pass
+            else:
+                # Chose euqal splits for every user
+                user_groups = abalone_noniid(train_dataset, args.num_users)
     return train_dataset, test_dataset, user_groups
+
+
+def abalone_iid(dataset, num_users):
+    num_items = int(len(dataset) / num_users)
+    dict_users, all_idxs = {}, [i for i in range(len(dataset))]
+    for i in range(num_users):
+        dict_users[i] = set(np.random.choice(all_idxs, num_items, replace=False))
+        all_idxs = list(set(all_idxs) - dict_users[i])
+    return dict_users
+
+
+def abalone_noniid(dataset, num_users):
+    # Shuffle the dataframe to ensure randomness
+    dataset = dataset.sample(frac=1, random_state=42).reset_index(drop=True)
+
+    # Group the data by 'Sex' column
+    grouped_data = dataset.groupby('Sex')
+
+    # Create a list of data indices for each 'Sex' group
+    grouped_indices = [group.index.tolist() for name, group in grouped_data]
+
+    # Flatten the list of grouped indices
+    all_indices = [idx for sublist in grouped_indices for idx in sublist]
+
+    # Calculate the number of samples each user should get
+    samples_per_user = len(all_indices) // num_users
+
+    # Create a dictionary to store the non-IID split indices
+    user_indices = {i: [] for i in range(num_users)}
+
+    # Distribute indices to users in a non-IID fashion
+    for i, idx in enumerate(all_indices):
+        user_idx = i % num_users
+        user_indices[user_idx].append(idx)
+
+    # Ensure each user gets the same number of samples
+    for user in range(num_users):
+        user_indices[user] = user_indices[user][:samples_per_user]
+
+    return user_indices
 
 
 def average_weights(w, args):

@@ -1,0 +1,18 @@
+{
+    "primary_key": "index",
+    "alternate_keys": [],
+    "METADATA_SPEC_VERSION": "SINGLE_TABLE_V1",
+    "columns": {
+        "index": {"sdtype": "id"},
+        "Sex": {"sdtype": "categorical"},
+        "Length": {"sdtype": "numerical"},
+        "Diameter": {"sdtype": "numerical"},
+        "Height": {"sdtype": "numerical"},
+        "Whole_weight": {"sdtype": "numerical"},
+        "Shucked_weight": {"sdtype": "numerical"},
+        "Viscera_weight": {"sdtype": "numerical"},
+        "Shell_weight": {"sdtype": "numerical"},
+        "Rings": {"sdtype": "numerical"}
+    },
+    "has_id": "False"
+}
